@@ -6,6 +6,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.graphics.Path
 import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import java.util.concurrent.atomic.AtomicBoolean
@@ -18,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class GameAutomationAccessibilityService : AccessibilityService() {
     private val gestureInFlight = AtomicBoolean(false)
+    private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var lastGestureAt = 0L
 
     override fun onServiceConnected() {
@@ -37,27 +40,31 @@ class GameAutomationAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    private fun dispatchPath(path: Path, durationMs: Long): Boolean {
+    private fun dispatchPathOnMainThread(path: Path, durationMs: Long): Boolean {
         if (!gestureInFlight.compareAndSet(false, true)) return false
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0L, durationMs))
-            .build()
-        val accepted = dispatchGesture(
-            gesture,
-            object : GestureResultCallback() {
-                override fun onCompleted(gestureDescription: GestureDescription?) {
-                    gestureInFlight.set(false)
-                }
+        val dispatch = Runnable {
+            val gesture = GestureDescription.Builder()
+                .addStroke(GestureDescription.StrokeDescription(path, 0L, durationMs))
+                .build()
+            val accepted = dispatchGesture(
+                gesture,
+                object : GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        gestureInFlight.set(false)
+                    }
 
-                override fun onCancelled(gestureDescription: GestureDescription?) {
-                    gestureInFlight.set(false)
-                }
-            },
-            null
-        )
-        if (!accepted) gestureInFlight.set(false)
-        if (accepted) lastGestureAt = SystemClock.elapsedRealtime()
-        return accepted
+                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                        gestureInFlight.set(false)
+                    }
+                },
+                mainHandler
+            )
+            if (!accepted) gestureInFlight.set(false)
+            if (accepted) lastGestureAt = SystemClock.elapsedRealtime()
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) dispatch.run()
+        else mainHandler.post(dispatch)
+        return true
     }
 
     fun tapPlayerProfile(): Boolean {
@@ -74,7 +81,7 @@ class GameAutomationAccessibilityService : AccessibilityService() {
             moveTo(x, y)
             lineTo(x + 1f, y + 1f)
         }
-        return dispatchPath(path, TAP_DURATION_MS)
+        return dispatchPathOnMainThread(path, TAP_DURATION_MS)
     }
 
     fun scrollAchievementList(): Boolean {
@@ -95,7 +102,7 @@ class GameAutomationAccessibilityService : AccessibilityService() {
             moveTo(x, startY)
             lineTo(x, endY)
         }
-        return dispatchPath(path, SCROLL_DURATION_MS)
+        return dispatchPathOnMainThread(path, SCROLL_DURATION_MS)
     }
 
     companion object {
