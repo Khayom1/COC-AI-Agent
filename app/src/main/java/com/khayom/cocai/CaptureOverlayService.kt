@@ -71,6 +71,8 @@ class CaptureOverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var overlayView: android.view.View? = null
     private var overlayStatus: TextView? = null
+    private var overlayStartButton: TextView? = null
+    private var overlayStopButton: TextView? = null
     private var isCapturing = false
     private var dragStartX = 0
     private var dragStartY = 0
@@ -165,7 +167,8 @@ class CaptureOverlayService : Service() {
                     }
                     if (!isCapturing) {
                         isCapturing = true
-                        overlayStatus?.post { overlayStatus?.text = "COC • 30 FPS • ACTIVE" }
+                        overlayStatus?.post { overlayStatus?.text = "COC AI • ACTIVE" }
+                        updateOverlayControls()
                         updateNotification("Мониторинги Achievement фаъол аст.")
                     }
                 } catch (e: Exception) {
@@ -258,9 +261,16 @@ class CaptureOverlayService : Service() {
                 val foreground = event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
                     (Build.VERSION.SDK_INT >= 29 &&
                         event.eventType == UsageEvents.Event.ACTIVITY_RESUMED)
-                if (foreground && event.timeStamp >= latestTime) {
+                val background = event.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND ||
+                    (Build.VERSION.SDK_INT >= 29 &&
+                        event.eventType == UsageEvents.Event.ACTIVITY_PAUSED)
+                if ((foreground || background) && event.timeStamp >= latestTime) {
                     latestTime = event.timeStamp
-                    latestPackage = event.packageName
+                    if (foreground) {
+                        latestPackage = event.packageName
+                    } else if (latestPackage == event.packageName) {
+                        latestPackage = null
+                    }
                 }
             }
             lastForegroundEventTime = latestTime
@@ -383,6 +393,9 @@ class CaptureOverlayService : Service() {
                 }
             } finally {
                 if (!copy.isRecycled) copy.recycle()
+                if (sessionGeneration.get() != generation) {
+                    lastAnalyzedFrameSignature = 0L
+                }
                 analyzing.set(false)
             }
         }.start()
@@ -405,7 +418,7 @@ class CaptureOverlayService : Service() {
             .putBoolean(KEY_CAPTURE_ACTIVE, false)
             .putLong(KEY_LAST_PAUSED_AT, System.currentTimeMillis())
             .apply()
-        overlayStatus?.post { overlayStatus?.text = "COC AI • PAUSED" }
+        updateOverlayControls()
         startAsForeground(capturing = false)
         updateNotification("Сканер қатъ аст. Барои оғоз START-ро пахш кун.")
     }
@@ -517,16 +530,18 @@ class CaptureOverlayService : Service() {
             setPadding(dp(8), dp(2), dp(8), dp(5))
         }
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        actions.addView(overlayButton("START", Color.rgb(30, 135, 70)) {
+        overlayStartButton = overlayButton("START", Color.rgb(30, 135, 70)) {
             val open = Intent(this, MainActivity::class.java).apply {
                 action = MainActivity.ACTION_START_FROM_OVERLAY
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             startActivity(open)
-        })
-        actions.addView(overlayButton("STOP", Color.rgb(168, 48, 48)) {
+        }
+        overlayStopButton = overlayButton("STOP", Color.rgb(168, 48, 48)) {
             startService(Intent(this, CaptureOverlayService::class.java).setAction(ACTION_STOP_CAPTURE))
-        })
+        }
+        actions.addView(overlayStartButton)
+        actions.addView(overlayStopButton)
         panel.addView(header)
         panel.addView(overlayStatus)
         panel.addView(actions)
@@ -566,6 +581,7 @@ class CaptureOverlayService : Service() {
         try {
             windowManager?.addView(panel, params)
             overlayView = panel
+            updateOverlayControls()
         } catch (e: Exception) {
             updateStatus("Overlay илова нашуд: ${e.message ?: "хатогӣ"}")
         }
@@ -588,10 +604,22 @@ class CaptureOverlayService : Service() {
             layoutParams = params
         }
 
+    private fun updateOverlayControls() {
+        overlayStatus?.post {
+            overlayStatus?.text = if (isCapturing) "Сканкунӣ фаъол аст" else "Таваққуф ёфтааст"
+            overlayStartButton?.isEnabled = !isCapturing
+            overlayStartButton?.alpha = if (isCapturing) 0.45f else 1f
+            overlayStopButton?.isEnabled = isCapturing
+            overlayStopButton?.alpha = if (isCapturing) 1f else 0.45f
+        }
+    }
+
     private fun removeOverlay() {
         try { overlayView?.let { windowManager?.removeView(it) } } catch (_: Exception) { }
         overlayView = null
         overlayStatus = null
+        overlayStartButton = null
+        overlayStopButton = null
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
