@@ -210,3 +210,7 @@ Every user enters their own DeepSeek API key in Settings. The repository and APK
 - Start and Stop always release capture resources and stop API calls.
 - No real API key is present in the repository or build artifacts.
 - The app never performs automated game actions.
+
+## Fair Play and policy boundary
+
+This project is designed as a passive, read-only screen-analysis assistant. It must not automate gameplay or modify/interfere with the game. However, read-only behavior does not guarantee that Supercell considers a third-party overlay or achievement-analysis app authorized. Supercell's published Terms and Fair Play policy restrict unauthorized third-party software and automation. Before public distribution or live-game use, the project owner should review the current policies and, if certainty is required, obtain clarification from Supercell. Do not advertise the app as officially approved or ban-proof.
