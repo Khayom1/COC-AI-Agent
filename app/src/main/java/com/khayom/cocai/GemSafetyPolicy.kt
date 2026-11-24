@@ -3,9 +3,9 @@ package com.khayom.cocai
 /**
  * Central policy guard for the product's non-spending requirement.
  *
- * The MVP does not expose Android Accessibility input or any API capable of
- * tapping game controls. This guard is an additional validation boundary:
- * future features must explicitly reject purchase/upgrade/spend actions.
+ * The Accessibility service is restricted to the player-profile entry tap and
+ * vertical scrolling of a confirmed Achievement list. It has no troop, battle,
+ * purchase, upgrade, boost, or resource-spending controls.
  */
 object GemSafetyPolicy {
     const val GEM_SPENDING_ENABLED = false
