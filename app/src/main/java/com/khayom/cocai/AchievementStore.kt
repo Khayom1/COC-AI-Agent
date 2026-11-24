@@ -94,9 +94,10 @@ object AchievementStore {
                     .put("last_seen_at", now)
 
                 if (newConfidence >= oldConfidence) {
-                    old.put("description", fresh.optString("description", old.optString("description")))
-                    old.put("gems_reward", fresh.opt("gems_reward") ?: old.opt("gems_reward") ?: JSONObject.NULL)
-                    old.put("xp_reward", fresh.opt("xp_reward") ?: old.opt("xp_reward") ?: JSONObject.NULL)
+                    val newDescription = fresh.optString("description", "").trim()
+                    if (newDescription.isNotEmpty()) old.put("description", newDescription)
+                    if (!fresh.isNull("gems_reward")) old.put("gems_reward", fresh.opt("gems_reward"))
+                    if (!fresh.isNull("xp_reward")) old.put("xp_reward", fresh.opt("xp_reward"))
                 }
                 merged[id] = old
                 accepted++
