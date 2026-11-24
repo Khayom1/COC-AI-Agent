@@ -22,7 +22,7 @@ It automatically scrolls long lists, detects when the visible page stops moving,
 - Season Challenges / Season Pass tasks
 - Clan Games
 - Clan War / CWL task automation
-- Battle automation, troop deployment, spell use, opponent selection, or strategic gameplay actions. Only profile-entry/tab-selection taps and confirmed-list scroll gestures are included.
+- Battle automation, troop deployment, spell use, opponent selection, or strategic gameplay actions. Profile-entry/tab-selection taps and confirmed-list scroll gestures are included.
 - Reading or controlling any app other than the allowlisted Clash of Clans package
 
 Achievements are cumulative progress objectives, not ordinary quests with an accept/reject button. The app therefore recommends which achievement to work toward; it does not claim to accept or reject an achievement inside the game.
@@ -199,7 +199,7 @@ Every user enters their own DeepSeek API key in Settings. The repository and APK
 
 ## MVP acceptance criteria
 
-- The only addable game is the allowlisted Clash of Clans package.
+- Only the allowlisted Clash of Clans package is supported.
 - The scanner processes only the three Profile → Achievements tabs.
 - Event, Season, and Clan Games screens are ignored.
 - Visible rows accepted by the model are normalized with a confidence value; low-confidence rows are discarded.
@@ -207,11 +207,11 @@ Every user enters their own DeepSeek API key in Settings. The repository and APK
 - The ranking includes a numeric priority based on progress, visible Gem reward, XP reward, confidence, and historical rate where available; this is an estimate, not a guaranteed best-task decision.
 - STOP releases capture resources and cancels the active API request while preserving the task database.
 - No real API key is present in the repository or build artifacts.
-- The app never performs automated game actions.
+- The app performs only profile navigation, Achievement-tab selection, and Achievement-list scrolling; strategic gameplay and Gem spending remain disabled.
 
 ## Fair Play and policy boundary
 
-This project is designed as a passive, read-only screen-analysis assistant. It must not automate gameplay or modify/interfere with the game. However, read-only behavior does not guarantee that Supercell considers a third-party overlay or achievement-analysis app authorized. Supercell's published Terms and Fair Play policy restrict unauthorized third-party software and automation. Before public distribution or live-game use, the project owner should review the current policies and, if certainty is required, obtain clarification from Supercell. Do not advertise the app as officially approved or ban-proof.
+This project is not an official Supercell integration. It automates only the navigation gestures listed above and does not automate combat, deploy troops, modify game memory, or interact with game servers. Before public distribution or live-game use, review the current game and platform rules. Do not advertise the app as officially approved.
 
 
 ## Current MVP implementation notes (2026-11-24)
