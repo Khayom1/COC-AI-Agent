@@ -56,9 +56,9 @@ class CaptureOverlayService : Service() {
     private var stoppingProjection = false
     private val analyzing = AtomicBoolean(false)
     private val sessionGeneration = AtomicLong(0L)
-    @Volatile private var candidateFrameSignature = 0L
+    @Volatile private var candidateFrameSignature: IntArray? = null
     @Volatile private var candidateStableSince = 0L
-    @Volatile private var lastAnalyzedFrameSignature = 0L
+    @Volatile private var lastAnalyzedFrameSignature: IntArray? = null
     @Volatile private var lastAutoAnalysisAt = 0L
     @Volatile private var nextRetryAt = 0L
     @Volatile private var retryDelayMs = INITIAL_RETRY_DELAY_MS
@@ -196,9 +196,9 @@ class CaptureOverlayService : Service() {
                 .putBoolean(KEY_CAPTURE_ACTIVE, isCapturing)
                 .putLong(KEY_LAST_STARTED_AT, System.currentTimeMillis())
                 .apply()
-            candidateFrameSignature = 0L
+            candidateFrameSignature = null
             candidateStableSince = 0L
-            lastAnalyzedFrameSignature = 0L
+            lastAnalyzedFrameSignature = null
             lastAutoAnalysisAt = 0L
             nextRetryAt = 0L
             retryDelayMs = INITIAL_RETRY_DELAY_MS
@@ -301,15 +301,17 @@ class CaptureOverlayService : Service() {
         }
 
         val now = SystemClock.elapsedRealtime()
-        if (candidateFrameSignature == 0L ||
-            hammingDistance(signature, candidateFrameSignature) > MAX_PHASH_DISTANCE) {
+        val previousCandidate = candidateFrameSignature
+        if (previousCandidate == null ||
+            frameDifference(signature, previousCandidate) > MAX_FRAME_DIFFERENCE) {
             candidateFrameSignature = signature
             candidateStableSince = now
             return
         }
 
-        if (lastAnalyzedFrameSignature != 0L &&
-            hammingDistance(candidateFrameSignature, lastAnalyzedFrameSignature) <= MAX_PHASH_DISTANCE) {
+        val lastAnalyzed = lastAnalyzedFrameSignature
+        if (lastAnalyzed != null &&
+            frameDifference(previousCandidate, lastAnalyzed) <= MAX_FRAME_DIFFERENCE) {
             return
         }
         if (now - candidateStableSince < FRAME_STABLE_MS) return
@@ -317,44 +319,50 @@ class CaptureOverlayService : Service() {
         if (now < nextRetryAt) return
 
         if (analyzeLatestFrame()) {
-            lastAnalyzedFrameSignature = candidateFrameSignature
+            lastAnalyzedFrameSignature = candidateFrameSignature?.copyOf()
             lastAutoAnalysisAt = now
         }
     }
 
     /**
-     * A compact 64-bit average-luminance hash. Unlike an exact pixel hash it
-     * tolerates tiny animated pixels, timers, and compression noise.
+     * Samples the central game panel at 16x16. Comparing average luminance
+     * differences is more sensitive to achievement-row scrolling than a tiny
+     * whole-screen hash, while tolerating small animation/compression changes.
      */
-    private fun frameSignature(bitmap: Bitmap): Long {
-        val sample = Bitmap.createScaledBitmap(bitmap, PHASH_SIZE, PHASH_SIZE, true)
+    private fun frameSignature(bitmap: Bitmap): IntArray {
+        val left = (bitmap.width * 0.08f).toInt().coerceAtLeast(0)
+        val top = (bitmap.height * 0.06f).toInt().coerceAtLeast(0)
+        val cropWidth = (bitmap.width * 0.84f).toInt().coerceAtMost(bitmap.width - left).coerceAtLeast(1)
+        val cropHeight = (bitmap.height * 0.88f).toInt().coerceAtMost(bitmap.height - top).coerceAtLeast(1)
+        val crop = Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
+        val sample = Bitmap.createScaledBitmap(crop, FRAME_SIGNATURE_SIZE, FRAME_SIGNATURE_SIZE, true)
         return try {
-            val pixels = IntArray(PHASH_SIZE * PHASH_SIZE)
-            sample.getPixels(pixels, 0, PHASH_SIZE, 0, 0, PHASH_SIZE, PHASH_SIZE)
-            val luminance = IntArray(pixels.size)
-            var total = 0L
-            for (i in pixels.indices) {
-                val color = pixels[i]
+            val pixels = IntArray(FRAME_SIGNATURE_SIZE * FRAME_SIGNATURE_SIZE)
+            sample.getPixels(
+                pixels, 0, FRAME_SIGNATURE_SIZE, 0, 0,
+                FRAME_SIGNATURE_SIZE, FRAME_SIGNATURE_SIZE
+            )
+            IntArray(pixels.size) { index ->
+                val color = pixels[index]
                 val red = (color shr 16) and 0xFF
                 val green = (color shr 8) and 0xFF
                 val blue = color and 0xFF
-                val gray = (red * 299 + green * 587 + blue * 114) / 1000
-                luminance[i] = gray
-                total += gray
+                (red * 299 + green * 587 + blue * 114) / 1000
             }
-            val average = total / luminance.size
-            var hash = 0L
-            for (i in luminance.indices) {
-                if (luminance[i] >= average) hash = hash or (1L shl i)
-            }
-            hash
         } finally {
-            if (sample !== bitmap && !sample.isRecycled) sample.recycle()
+            if (sample !== crop && !sample.isRecycled) sample.recycle()
+            if (crop !== bitmap && !crop.isRecycled) crop.recycle()
         }
     }
 
-    private fun hammingDistance(first: Long, second: Long): Int =
-        java.lang.Long.bitCount(first xor second)
+    private fun frameDifference(first: IntArray, second: IntArray): Double {
+        if (first.size != second.size || first.isEmpty()) return Double.MAX_VALUE
+        var totalDifference = 0L
+        for (index in first.indices) {
+            totalDifference += kotlin.math.abs(first[index] - second[index])
+        }
+        return totalDifference.toDouble() / first.size
+    }
 
     private fun analyzeLatestFrame(): Boolean {
         if (!isCapturing || !isAllowedGameForeground()) {
@@ -678,8 +686,8 @@ class CaptureOverlayService : Service() {
         private const val MIN_AUTO_ANALYSIS_INTERVAL_MS = 3_500L
         private const val INITIAL_RETRY_DELAY_MS = 5_000L
         private const val MAX_RETRY_DELAY_MS = 120_000L
-        private const val PHASH_SIZE = 8
-        private const val MAX_PHASH_DISTANCE = 4
+        private const val FRAME_SIGNATURE_SIZE = 16
+        private const val MAX_FRAME_DIFFERENCE = 6.0
         const val SESSION_PREFS = "coc_ai_session"
         const val KEY_CAPTURE_ACTIVE = "capture_active"
         const val KEY_LAST_STARTED_AT = "last_started_at"
