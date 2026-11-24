@@ -25,7 +25,7 @@ The scanner is not intended for Event Missions, Season Challenges, Clan Games, o
 
 ## Important limits
 
-This project is a passive, read-only screen analyzer. It does not tap Clash of Clans controls, deploy troops, automate battles, modify game memory, inject code, or interact with game servers. The user opens the game and navigates to Profile → Achievements; the app observes and analyzes changed frames while the session is active. The Achievement database is preserved between STOP and START.
+This project is a passive, read-only screen analyzer. It does not tap Clash of Clans controls, deploy troops, automate battles, modify game memory, inject code, or interact with game servers. START obtains Android's screen-capture consent, opens the allowlisted game, and begins automatic changed-frame analysis. The user must navigate to Profile → Achievements and scroll manually; there is no automated game tapping or scrolling. The Achievement database is preserved between STOP and START.
 
 For building/army-level context, the user must navigate to the relevant screen manually. The MVP's AI parser deliberately accepts only the three Achievement tabs. The app does not automatically open the profile, tap game controls, or scroll the list.
 
@@ -52,4 +52,4 @@ See [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) for the full architectu
 
 ## Current status
 
-Android MVP source and a GitHub Actions debug-APK workflow are committed. The APK is not considered ready until the Actions build succeeds and the app is tested on the Samsung Galaxy A35 5G / Android 16.
+Android MVP source and a GitHub Actions debug-APK workflow are committed. The APK is not considered stable until the Actions build and unit tests succeed and the app is tested on the Samsung Galaxy A35 5G / Android 16.
