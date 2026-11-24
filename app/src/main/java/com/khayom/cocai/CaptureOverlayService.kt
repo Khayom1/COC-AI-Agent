@@ -62,6 +62,8 @@ class CaptureOverlayService : Service() {
     @Volatile private var lastAutoAnalysisAt = 0L
     @Volatile private var nextRetryAt = 0L
     @Volatile private var retryDelayMs = INITIAL_RETRY_DELAY_MS
+    @Volatile private var profileTapAttempted = false
+    @Volatile private var autoScrollCount = 0
 
     private val autoScanRunnable = object : Runnable {
         override fun run() {
@@ -202,6 +204,8 @@ class CaptureOverlayService : Service() {
             lastAutoAnalysisAt = 0L
             nextRetryAt = 0L
             retryDelayMs = INITIAL_RETRY_DELAY_MS
+            profileTapAttempted = false
+            autoScrollCount = 0
             workerHandler?.removeCallbacks(autoScanRunnable)
             workerHandler?.postDelayed(autoScanRunnable, AUTO_SCAN_POLL_MS)
             overlayStatus?.post { overlayStatus?.text = "COC AI • ACTIVE" }
@@ -394,12 +398,33 @@ class CaptureOverlayService : Service() {
                     !isCapturing || sessionGeneration.get() != generation
                 }
                 if (isCapturing && sessionGeneration.get() == generation) {
-                    val result = AchievementStore.mergeAndFormat(this, scanJson)
-                    publishResult(result)
-                    nextRetryAt = 0L
-                    retryDelayMs = INITIAL_RETRY_DELAY_MS
-                    updateNotification("Таҳлил анҷом ёфт. Хотираи Achievement нав шуд.")
-                    updateStatus("Таҳлил анҷом ёфт.")
+                    val parsed = JSONObject(scanJson)
+                    val screenType = parsed.optString("screen_type")
+                    val gameScreen = parsed.optString("game_screen")
+                    if (screenType == "ACHIEVEMENTS") {
+                        val result = AchievementStore.mergeAndFormat(this, scanJson)
+                        publishResult(result)
+                        nextRetryAt = 0L
+                        retryDelayMs = INITIAL_RETRY_DELAY_MS
+                        updateNotification("Achievement сабт шуд. Рӯйхат худкор скролл мешавад.")
+                        scheduleAchievementScroll(generation, parsed.optJSONArray("tasks")?.length() ?: 0)
+                    } else if (gameScreen == "VILLAGE_HOME" && !profileTapAttempted) {
+                        workerHandler?.postDelayed({
+                            if (isCapturing && sessionGeneration.get() == generation &&
+                                isAllowedGameForeground()) {
+                                val tapped = GameAutomationAccessibilityService.tapPlayerProfile()
+                                if (tapped) {
+                                    profileTapAttempted = true
+                                    updateStatus("Профили бозингар кушода мешавад...")
+                                } else {
+                                    updateStatus("Тап ба профил иҷро нашуд. Accessibility-ро санҷ.")
+                                }
+                            }
+                        }, PROFILE_OPEN_DELAY_MS)
+                    } else {
+                        updateStatus(parsed.optString("reason", "Экран Achievement ёфт нашуд; амал фиристода нашуд."))
+                        nextRetryAt = SystemClock.elapsedRealtime() + 8_000L
+                    }
                 }
             } catch (e: Exception) {
                 if (isCapturing && sessionGeneration.get() == generation) {
@@ -420,6 +445,27 @@ class CaptureOverlayService : Service() {
             }
         }.start()
         return true
+    }
+
+    private fun scheduleAchievementScroll(generation: Long, visibleTaskCount: Int) {
+        if (visibleTaskCount <= 0 || autoScrollCount >= MAX_AUTO_SCROLLS) {
+            if (autoScrollCount >= MAX_AUTO_SCROLLS) {
+                updateStatus("Ҳадди скролли автоматӣ расид; барои идома STOP/START кун.")
+            }
+            return
+        }
+        workerHandler?.postDelayed({
+            if (!isCapturing || sessionGeneration.get() != generation ||
+                !isAllowedGameForeground()) return@postDelayed
+
+            val sent = GameAutomationAccessibilityService.scrollAchievementList()
+            if (sent) {
+                autoScrollCount++
+                updateStatus("Скролли автоматӣ: $autoScrollCount • DeepSeek саҳифаи навро мехонад...")
+            } else {
+                updateStatus("Скролл иҷро нашуд. Accessibility фаъол ва фаъол будани бозиро санҷ.")
+            }
+        }, AUTO_SCROLL_DELAY_MS)
     }
 
     private fun publishResult(result: String) {
@@ -688,6 +734,9 @@ class CaptureOverlayService : Service() {
         private const val MIN_AUTO_ANALYSIS_INTERVAL_MS = 3_500L
         private const val INITIAL_RETRY_DELAY_MS = 5_000L
         private const val MAX_RETRY_DELAY_MS = 120_000L
+        private const val PROFILE_OPEN_DELAY_MS = 1_500L
+        private const val AUTO_SCROLL_DELAY_MS = 2_200L
+        private const val MAX_AUTO_SCROLLS = 40
         private const val FRAME_SIGNATURE_SIZE = 16
         private const val MAX_FRAME_DIFFERENCE = 6.0
         const val SESSION_PREFS = "coc_ai_session"
