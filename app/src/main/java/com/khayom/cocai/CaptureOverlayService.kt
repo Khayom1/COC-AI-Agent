@@ -390,7 +390,9 @@ class CaptureOverlayService : Service() {
                 if (key.isNullOrBlank()) {
                     throw IllegalStateException("Аввал DeepSeek API Key-ро дар Settings ворид кун.")
                 }
-                val scanJson = DeepSeekClient.analyzeAchievements(copy, key) {\n                    !isCapturing || sessionGeneration.get() != generation\n                }
+                val scanJson = DeepSeekClient.analyzeAchievements(copy, key) {
+                    !isCapturing || sessionGeneration.get() != generation
+                }
                 if (isCapturing && sessionGeneration.get() == generation) {
                     val result = AchievementStore.mergeAndFormat(this, scanJson)
                     publishResult(result)
