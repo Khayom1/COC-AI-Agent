@@ -41,7 +41,7 @@
             android:foregroundServiceType="mediaProjection|specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-visible floating controls for a user-started read-only achievement screen analysis session." />
+                android:value="User-started session for AI-assisted profile navigation and automatic scrolling of the visible Clash of Clans Achievement list." />
         </service>
     </application>
 </manifest>
