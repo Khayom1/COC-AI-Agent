@@ -524,7 +524,8 @@ class CaptureOverlayService : Service() {
     }
 
     private fun advanceToNextAchievementTab(generation: Long) {
-        if (!isCapturing || sessionGeneration.get() != generation) return
+        if (!isCapturing || sessionGeneration.get() != generation ||
+            !isAllowedGameForeground()) return
         val nextTab = (currentAchievementTab + 1) % 3
         if (startingAchievementTab >= 0 && nextTab == startingAchievementTab) {
             updateStatus("Ҳар се таби Achievement скан шуд. Маълумот дар хотира нигоҳ дошта шуд.")
