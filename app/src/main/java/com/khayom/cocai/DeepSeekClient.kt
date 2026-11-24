@@ -32,7 +32,6 @@ object DeepSeekClient {
     fun testConnection(apiKey: String): String {
         require(apiKey.isNotBlank()) { "Аввал API Key ворид кун." }
         val connection = URL("https://api.deepseek.com/models").openConnection() as HttpURLConnection
-        synchronized(this) { activeConnection = connection }
         try {
             connection.requestMethod = "GET"
             connection.connectTimeout = 15_000
@@ -76,9 +75,6 @@ object DeepSeekClient {
         } catch (e: IOException) {
             throw IllegalStateException("Хатои шабака: ${e.message ?: "I/O error"}")
         } finally {
-            synchronized(this) {
-                if (activeConnection === connection) activeConnection = null
-            }
             connection.disconnect()
         }
     }
