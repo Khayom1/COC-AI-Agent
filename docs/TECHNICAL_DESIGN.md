@@ -229,18 +229,18 @@ The first Android source drop now implements:
 - AES-GCM encryption of the user's key using Android Keystore.
 - A central no-game-input / no-gem-spending policy guard.
 
-The current MVP samples frames up to 30 FPS, samples a central 16x16 luminance grid and compares average image differences to ignore small edge animations, waits for a stable materially changed frame, and automatically sends a cropped candidate image to DeepSeek with a 3.5-second minimum request interval. DeepSeek output is validated for allowed tab, non-empty title, numeric sanity, and a minimum confidence before rows are merged into a durable local database. The database and progress observations survive STOP, app closure, and later START. Local OCR, automatic profile navigation, automatic scrolling, and a complete combat-power feasibility model are not implemented. The user must navigate to Profile → Achievements and scroll manually; the app observes and analyzes changed visible pages. A basic completion-time estimate is derived from at least two observed progress increases separated by time; it is a rough historical-rate estimate, not a guaranteed prediction.
+The current MVP samples frames up to 30 FPS, samples a central 16x16 luminance grid and compares average image differences to ignore small edge animations, waits for a stable materially changed frame, and automatically sends a cropped candidate image to DeepSeek with a 3.5-second minimum request interval. DeepSeek first classifies the screen as the main village, player profile, Achievement page, or other. When the main village is confirmed, the app taps the player-profile badge; when the Achievement page is confirmed, it merges validated rows into a durable local database and schedules an upward swipe. A changed list page is then analyzed and merged. Automatic scrolling is capped at 40 gestures per session. The database and progress observations survive STOP, app closure, and later START. Local OCR and a complete combat-power feasibility model are not implemented. The app does not play battles or deploy troops. A basic completion-time estimate is derived from at least two observed progress increases separated by time; it is a rough historical-rate estimate, not a guaranteed prediction.
 
 ### User-driven extra context
 
-If the AI needs a building or troop level to estimate whether an achievement is feasible, it may explain exactly what information is missing and ask the user to open that screen manually. This MVP does not tap game objects or navigate the game automatically. The user must navigate to the Achievement tab and scroll manually; automatic recognition and merging continue while the scan session is active. The achievement task parser itself rejects building-detail, army, shop, Events, Season Challenges, and Clan Games screens.
+If the AI needs a building or troop level to estimate whether an achievement is feasible, it may explain exactly what information is missing and ask the user to open that screen manually. This MVP taps only the player-profile badge after DeepSeek classifies the foreground screen as the main village, then uses Accessibility swipe gestures only after DeepSeek confirms the Achievement page. The user must enable the Accessibility service once and grant screen capture consent at each session. The current build does not automate battles, troop deployment, spell use, purchases, upgrades, or Gem spending. The achievement task parser itself rejects building-detail, army, shop, Events, Season Challenges, and Clan Games screens.
 
 ### Non-negotiable Gems lock
 
 - No game input injection, Accessibility click actions, coordinate taps, UIAutomator, ADB control, or game-control API is included.
 - No purchase, upgrade, boost, instant-finish, or spending interaction is implemented.
 - Gems are parsed only as visible achievement rewards.
-- A future feature that adds any game input must not be merged without a separate safety review; spending Gems is out of scope permanently.
+- No action capable of spending Gems is implemented; the current Accessibility layer is navigation-only.
 
 ### Frame-rate and provider-cost policy
 
@@ -261,4 +261,4 @@ The GitHub Actions workflow is configured to run `assembleDebug` and upload an A
 - Vision output rows with low confidence, negative progress, or invalid titles are not inserted into the durable task database.
 - Database writes use synchronous commit before the result is reported as saved.
 - Ranking now considers progress completion ratio, visible Gem reward, XP reward, confidence, and historical completion rate where enough progress observations exist.
-- A unit-test suite verifies the no-game-input and no-Gem-spending invariants. It does not replace manual Android device tests.
+- A unit-test suite verifies that gameplay actions and Gem spending remain disabled. It does not test the Accessibility gestures; those require physical-device validation.
