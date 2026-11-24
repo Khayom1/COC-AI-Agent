@@ -37,6 +37,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 class CaptureOverlayService : Service() {
     private var projection: MediaProjection? = null
@@ -54,6 +55,7 @@ class CaptureOverlayService : Service() {
     @Volatile private var lastForegroundAllowed = false
     private var stoppingProjection = false
     private val analyzing = AtomicBoolean(false)
+    private val sessionGeneration = AtomicLong(0L)
     @Volatile private var candidateFrameSignature = 0L
     @Volatile private var candidateStableSince = 0L
     @Volatile private var lastAnalyzedFrameSignature = 0L
@@ -80,14 +82,19 @@ class CaptureOverlayService : Service() {
         worker = HandlerThread("COC-AI-Capture").also { it.start() }
         workerHandler = Handler(worker!!.looper)
         createNotificationChannel()
+        // A process restart cannot restore MediaProjection. Clear only the
+        // stale session flag; the Achievement database is stored separately.
+        getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_CAPTURE_ACTIVE, false).apply()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP_CAPTURE -> stopProjectionKeepOverlay()
             ACTION_STOP_ALL -> {
-                stopProjectionResources()
                 isCapturing = false
+                sessionGeneration.incrementAndGet()
+                stopProjectionResources()
                 removeOverlay()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -177,6 +184,7 @@ class CaptureOverlayService : Service() {
                 null,
                 workerHandler
             )
+            sessionGeneration.incrementAndGet()
             isCapturing = virtualDisplay != null
             getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
                 .edit()
@@ -358,16 +366,20 @@ class CaptureOverlayService : Service() {
                     throw IllegalStateException("Аввал DeepSeek API Key-ро дар Settings ворид кун.")
                 }
                 val scanJson = DeepSeekClient.analyzeAchievements(copy, key)
-                val result = AchievementStore.mergeAndFormat(this, scanJson)
-                publishResult(result)
-                updateNotification("Таҳлил анҷом ёфт. Барои дидани натиҷа барномаро кушо.")
-                updateStatus("Таҳлил анҷом ёфт.")
+                if (isCapturing && sessionGeneration.get() == generation) {
+                    val result = AchievementStore.mergeAndFormat(this, scanJson)
+                    publishResult(result)
+                    updateNotification("Таҳлил анҷом ёфт. Хотираи Achievement нав шуд.")
+                    updateStatus("Таҳлил анҷом ёфт.")
+                }
             } catch (e: Exception) {
-                lastAnalyzedFrameSignature = 0L
-                val message = "Хатои таҳлил: ${e.message ?: "номаълум"}"
-                publishResult(message)
-                updateNotification(message)
-                updateStatus(message)
+                if (isCapturing && sessionGeneration.get() == generation) {
+                    lastAnalyzedFrameSignature = 0L
+                    val message = "Хатои таҳлил: ${e.message ?: "номаълум"}"
+                    publishResult(message)
+                    updateNotification(message)
+                    updateStatus(message)
+                }
             } finally {
                 if (!copy.isRecycled) copy.recycle()
                 analyzing.set(false)
@@ -384,8 +396,9 @@ class CaptureOverlayService : Service() {
     }
 
     private fun stopProjectionKeepOverlay() {
-        stopProjectionResources()
         isCapturing = false
+        sessionGeneration.incrementAndGet()
+        stopProjectionResources()
         getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_CAPTURE_ACTIVE, false)
@@ -398,6 +411,7 @@ class CaptureOverlayService : Service() {
 
     private fun stopProjectionResources() {
         workerHandler?.removeCallbacks(autoScanRunnable)
+        DeepSeekClient.cancelCurrentRequest()
         try { virtualDisplay?.release() } catch (_: Exception) { }
         virtualDisplay = null
         try { imageReader?.setOnImageAvailableListener(null, null) } catch (_: Exception) { }
@@ -583,6 +597,8 @@ class CaptureOverlayService : Service() {
 
     override fun onDestroy() {
         stoppingProjection = true
+        isCapturing = false
+        sessionGeneration.incrementAndGet()
         getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_CAPTURE_ACTIVE, false).apply()
         stopProjectionResources()
