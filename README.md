@@ -28,13 +28,13 @@ The scanner is not intended for Event Missions, Season Challenges, Clan Games, o
 
 ## Important limits
 
-START obtains Android's screen-capture consent, opens the allowlisted game, and begins automatic changed-frame analysis. When DeepSeek identifies the main village, the app taps the player-profile badge at a calibrated relative position. When DeepSeek confirms Profile → Achievements, Accessibility sends an upward swipe through the list; a changed page is then analyzed and merged into the local database. The current scroll controller is limited to 60 swipes per session. After two swipes with no detected movement, it advances to the next Achievement tab and stops after returning to the tab where the scan began and only runs when the game is confirmed in the foreground.
+START obtains Android's screen-capture consent, opens the allowlisted game, and begins automatic changed-frame analysis. When DeepSeek identifies the main village, the app taps the player-profile badge at a calibrated relative position. When DeepSeek confirms Profile → Achievements, Accessibility sends an upward swipe through the list; a changed page is then analyzed and merged into the local database. The current scroll controller is limited to 60 swipes per session. After two swipes with no detected movement, it advances to the next Achievement tab. It stops after returning to the tab where the scan began. Automation only runs while the game is confirmed in the foreground.
 
 The user must enable the app's Accessibility service once in Android Settings. This service does not read the game UI hierarchy; it dispatches only the profile-entry tap, Achievement tab-selection taps, and vertical swipes on the confirmed Achievement list. Android still requires fresh screen-capture consent for every MediaProjection session. The Achievement database is preserved between STOP and START.
 
 **The app does not play battles or earn combat achievements by itself.** It does not choose a multiplayer opponent, train an army, deploy troops, cast spells, or manage battle outcomes. It also does not purchase, upgrade, boost, or spend Gems.
 
-Supercell's current published policies prohibit bots/gameplay automation and unauthorized third-party software that modifies or interferes with game play. Read-only observation does not constitute official Supercell approval; use at your own account risk and review the current policies before live-game use.
+Supercell's current published policies prohibit bots/gameplay automation and unauthorized third-party software that modifies or interferes with game play. This is not an official Supercell integration or approval; review the current game and platform rules before live-game use.
 
 ## Build
 
