@@ -102,9 +102,11 @@ object AchievementStore {
                 val lastObservation = observations.optJSONObject(observations.length() - 1)
                 val lastObservedAt = lastObservation?.optLong("at", 0L) ?: 0L
                 val lastObservedProgress = lastObservation?.optInt("progress", -1) ?: -1
-                if (current != null && current > lastObservedProgress &&
+                if (newCurrent != null &&
+                    (oldCurrent == null || newCurrent > oldCurrent) &&
+                    newCurrent > lastObservedProgress &&
                     (lastObservedAt == 0L || now - lastObservedAt >= MIN_OBSERVATION_INTERVAL_MS)) {
-                    observations.put(JSONObject().put("at", now).put("progress", current))
+                    observations.put(JSONObject().put("at", now).put("progress", newCurrent))
                     while (observations.length() > MAX_OBSERVATIONS) {
                         val trimmed = JSONArray()
                         for (index in 1 until observations.length()) {
