@@ -140,9 +140,11 @@ class CaptureOverlayService : Service() {
                         latestFrame = bitmap
                         if (old != null && !old.isRecycled) old.recycle()
                     }
-                    isCapturing = true
-                    overlayStatus?.post { overlayStatus?.text = "COC • 30 FPS • ACTIVE" }
-                    updateNotification("Мониторинги Achievement фаъол аст.")
+                    if (!isCapturing) {
+                        isCapturing = true
+                        overlayStatus?.post { overlayStatus?.text = "COC • 30 FPS • ACTIVE" }
+                        updateNotification("Мониторинги Achievement фаъол аст.")
+                    }
                 } catch (e: Exception) {
                     updateStatus("Хатои гирифтани экран: ${e.message ?: "номаълум"}")
                 } finally {
@@ -352,7 +354,11 @@ class CaptureOverlayService : Service() {
         manager.notify(NOTIFICATION_ID, notification)
     }
 
+    @Volatile private var lastStatusMessage: String? = null
+
     private fun updateStatus(message: String) {
+        if (lastStatusMessage == message) return
+        lastStatusMessage = message
         overlayStatus?.post { overlayStatus?.text = "COC • ${message.take(46)}" }
         getSharedPreferences("coc_ai_results", MODE_PRIVATE)
             .edit().putString("service_status", message).apply()
@@ -467,6 +473,7 @@ class CaptureOverlayService : Service() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
+        stoppingProjection = true
         stopProjectionResources()
         removeOverlay()
         try { worker?.quitSafely() } catch (_: Exception) { }
