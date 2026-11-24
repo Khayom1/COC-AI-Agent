@@ -214,3 +214,38 @@ Every user enters their own DeepSeek API key in Settings. The repository and APK
 ## Fair Play and policy boundary
 
 This project is designed as a passive, read-only screen-analysis assistant. It must not automate gameplay or modify/interfere with the game. However, read-only behavior does not guarantee that Supercell considers a third-party overlay or achievement-analysis app authorized. Supercell's published Terms and Fair Play policy restrict unauthorized third-party software and automation. Before public distribution or live-game use, the project owner should review the current policies and, if certainty is required, obtain clarification from Supercell. Do not advertise the app as officially approved or ban-proof.
+
+
+## Current MVP implementation notes (2026-11-24)
+
+The first Android source drop now implements:
+- Native Kotlin Android app with a fixed Clash of Clans package check.
+- MediaProjection consent flow and a screen-capture foreground service.
+- Frame processing throttled to a maximum of 30 frames/second.
+- Floating draggable START / SCAN / STOP controls.
+- Usage Access foreground-package check; analysis is paused unless the latest foreground activity belongs to the allowlisted Clash package.
+- DeepSeek Vision request on demand when the user presses SCAN (not one remote API request per video frame).
+- Central achievement-panel crop before the image is sent to the provider.
+- AES-GCM encryption of the user's key using Android Keystore.
+- A central no-game-input / no-gem-spending policy guard.
+
+The current MVP sends a cropped image to DeepSeek for semantic parsing. Local OCR, continuous list aggregation across multiple scroll positions, persistent achievement history, historical pace learning, and the full recommendation model remain planned work and must not be described as implemented until added and tested.
+
+### User-driven extra context
+
+If the AI needs a building or troop level to estimate whether an achievement is feasible, it may explain exactly what information is missing and ask the user to open that screen manually. This MVP does not tap game objects or navigate the game automatically. The user may manually return to an Achievement tab and press SCAN again. The achievement task parser itself rejects building-detail, army, shop, Events, Season Challenges, and Clan Games screens.
+
+### Non-negotiable Gems lock
+
+- No game input injection, Accessibility click actions, coordinate taps, UIAutomator, ADB control, or game-control API is included.
+- No purchase, upgrade, boost, instant-finish, or spending interaction is implemented.
+- Gems are parsed only as visible achievement rewards.
+- A future feature that adds any game input must not be merged without a separate safety review; spending Gems is out of scope permanently.
+
+### Frame-rate and provider-cost policy
+
+The capture pipeline accepts frames at up to 30 FPS and stores only the latest in-memory frame. It does not upload a video stream. A DeepSeek request occurs only after an explicit SCAN action, which prevents accidental dozens of paid Vision requests every second.
+
+### Build status
+
+The GitHub Actions workflow is configured to run `assembleDebug` and upload an APK artifact. A green build and physical-device test are still required before calling the APK stable.
