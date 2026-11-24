@@ -111,7 +111,7 @@ class MainActivity : Activity() {
         titleBox.addView(label("Achievement intelligence", 12f, MUTED, false))
         header.addView(mark)
         header.addView(titleBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        header.addView(label("v0.2", 11f, MUTED, true))
+        header.addView(label("v0.3", 11f, MUTED, true))
         root.addView(header)
         root.addView(space(18))
 
@@ -163,7 +163,7 @@ class MainActivity : Activity() {
         sessionCard.addView(sessionButtons)
         sessionCard.addView(space(10))
         sessionCard.addView(label(
-            "START: сканро аз маълумоти пешина идома медиҳад. STOP: танҳо сабтро таваққуф мекунад. Барои ҳар START Android иҷозати нави сабти экран талаб мекунад.",
+            "START: сканро аз хотираи пешина идома медиҳад. STOP: танҳо сабтро таваққуф мекунад ва маълумотро нигоҳ медорад. Барои ҳар START Android иҷозати сабти экранро мепурсад.\n\nПас аз кушода шудани бозӣ, Profile → Achievements-ро кушо. AI саҳифаи намоёнро худаш мехонад; рӯйхатро барои пурра ҷамъ шудан дастӣ ба поён гардон.",
             12f, MUTED, false
         ))
         root.addView(sessionCard, matchWrap())
