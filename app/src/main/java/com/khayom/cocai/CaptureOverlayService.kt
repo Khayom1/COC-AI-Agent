@@ -75,8 +75,7 @@ class CaptureOverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var overlayView: android.view.View? = null
     private var overlayStatus: TextView? = null
-    private var overlayStartButton: TextView? = null
-    private var overlayStopButton: TextView? = null
+    private var overlayToggleButton: TextView? = null
     private var isCapturing = false
     private var dragStartX = 0
     private var dragStartY = 0
@@ -597,20 +596,23 @@ class CaptureOverlayService : Service() {
             setPadding(dp(8), dp(2), dp(8), dp(5))
         }
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val startButton = overlayButton("START", Color.rgb(30, 135, 70)) {
-            val open = Intent(this, MainActivity::class.java).apply {
-                action = MainActivity.ACTION_START_FROM_OVERLAY
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val toggleButton = overlayButton(
+            if (isCapturing) "■  STOP" else "▶  START",
+            if (isCapturing) Color.rgb(168, 48, 48) else Color.rgb(30, 135, 70)
+        ) {
+            if (isCapturing) {
+                startService(Intent(this, CaptureOverlayService::class.java)
+                    .setAction(ACTION_STOP_CAPTURE))
+            } else {
+                val open = Intent(this, MainActivity::class.java).apply {
+                    action = MainActivity.ACTION_START_FROM_OVERLAY
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+                startActivity(open)
             }
-            startActivity(open)
         }
-        val stopButton = overlayButton("STOP", Color.rgb(168, 48, 48)) {
-            startService(Intent(this, CaptureOverlayService::class.java).setAction(ACTION_STOP_CAPTURE))
-        }
-        overlayStartButton = startButton
-        overlayStopButton = stopButton
-        actions.addView(startButton)
-        actions.addView(stopButton)
+        overlayToggleButton = toggleButton
+        actions.addView(toggleButton)
         panel.addView(header)
         panel.addView(overlayStatus)
         panel.addView(actions)
@@ -675,11 +677,14 @@ class CaptureOverlayService : Service() {
 
     private fun updateOverlayControls() {
         overlayStatus?.post {
-            overlayStatus?.text = if (isCapturing) "Сканкунӣ фаъол аст" else "Таваққуф ёфтааст"
-            overlayStartButton?.isEnabled = !isCapturing
-            overlayStartButton?.alpha = if (isCapturing) 0.45f else 1f
-            overlayStopButton?.isEnabled = isCapturing
-            overlayStopButton?.alpha = if (isCapturing) 1f else 0.45f
+            overlayStatus?.text = if (isCapturing) "AI • ACTIVE • PROFILE/SCROLL" else "AI • PAUSED"
+            overlayToggleButton?.text = if (isCapturing) "■  STOP" else "▶  START"
+            overlayToggleButton?.background = GradientDrawable().apply {
+                setColor(if (isCapturing) Color.rgb(168, 48, 48) else Color.rgb(30, 135, 70))
+                cornerRadius = dp(7).toFloat()
+            }
+            overlayToggleButton?.isEnabled = true
+            overlayToggleButton?.alpha = 1f
         }
     }
 
@@ -687,8 +692,7 @@ class CaptureOverlayService : Service() {
         try { overlayView?.let { windowManager?.removeView(it) } } catch (_: Exception) { }
         overlayView = null
         overlayStatus = null
-        overlayStartButton = null
-        overlayStopButton = null
+        overlayToggleButton = null
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
