@@ -279,38 +279,58 @@ class CaptureOverlayService : Service() {
         }
 
         val now = SystemClock.elapsedRealtime()
-        if (signature != candidateFrameSignature) {
+        if (candidateFrameSignature == 0L ||
+            hammingDistance(signature, candidateFrameSignature) > MAX_PHASH_DISTANCE) {
             candidateFrameSignature = signature
             candidateStableSince = now
             return
         }
 
-        if (signature == lastAnalyzedFrameSignature) return
+        if (lastAnalyzedFrameSignature != 0L &&
+            hammingDistance(candidateFrameSignature, lastAnalyzedFrameSignature) <= MAX_PHASH_DISTANCE) {
+            return
+        }
         if (now - candidateStableSince < FRAME_STABLE_MS) return
         if (now - lastAutoAnalysisAt < MIN_AUTO_ANALYSIS_INTERVAL_MS) return
 
-        lastAnalyzedFrameSignature = signature
+        lastAnalyzedFrameSignature = candidateFrameSignature
         lastAutoAnalysisAt = now
         analyzeLatestFrame()
     }
 
+    /**
+     * A compact 64-bit average-luminance hash. Unlike an exact pixel hash it
+     * tolerates tiny animated pixels, timers, and compression noise.
+     */
     private fun frameSignature(bitmap: Bitmap): Long {
-        val sample = Bitmap.createScaledBitmap(bitmap, SIGNATURE_SIZE, SIGNATURE_SIZE, true)
+        val sample = Bitmap.createScaledBitmap(bitmap, PHASH_SIZE, PHASH_SIZE, true)
         return try {
-            var hash = FNV_OFFSET_BASIS
-            val pixels = IntArray(SIGNATURE_SIZE * SIGNATURE_SIZE)
-            sample.getPixels(pixels, 0, SIGNATURE_SIZE, 0, 0, SIGNATURE_SIZE, SIGNATURE_SIZE)
-            for (pixel in pixels) {
-                val quantized = ((pixel ushr 20) and 0x0F) shl 8 or
-                    ((pixel ushr 12) and 0x0F) shl 4 or
-                    ((pixel ushr 4) and 0x0F)
-                hash = (hash xor quantized.toLong()) * FNV_PRIME
+            val pixels = IntArray(PHASH_SIZE * PHASH_SIZE)
+            sample.getPixels(pixels, 0, PHASH_SIZE, 0, 0, PHASH_SIZE, PHASH_SIZE)
+            val luminance = IntArray(pixels.size)
+            var total = 0L
+            for (i in pixels.indices) {
+                val color = pixels[i]
+                val red = (color shr 16) and 0xFF
+                val green = (color shr 8) and 0xFF
+                val blue = color and 0xFF
+                val gray = (red * 299 + green * 587 + blue * 114) / 1000
+                luminance[i] = gray
+                total += gray
+            }
+            val average = total / luminance.size
+            var hash = 0L
+            for (i in luminance.indices) {
+                if (luminance[i] >= average) hash = hash or (1L shl i)
             }
             hash
         } finally {
             if (sample !== bitmap && !sample.isRecycled) sample.recycle()
         }
     }
+
+    private fun hammingDistance(first: Long, second: Long): Int =
+        java.lang.Long.bitCount(first xor second)
 
     private fun analyzeLatestFrame() {
         if (!isCapturing || !isAllowedGameForeground()) {
@@ -597,10 +617,9 @@ class CaptureOverlayService : Service() {
         private const val FRAME_INTERVAL_MS = 33L
         private const val AUTO_SCAN_POLL_MS = 1_000L
         private const val FRAME_STABLE_MS = 1_500L
-        private const val MIN_AUTO_ANALYSIS_INTERVAL_MS = 10_000L
-        private const val SIGNATURE_SIZE = 12
-        private const val FNV_OFFSET_BASIS = 1_469_598_103_934_665_603L
-        private const val FNV_PRIME = 1_099_511_628_211L
+        private const val MIN_AUTO_ANALYSIS_INTERVAL_MS = 8_000L
+        private const val PHASH_SIZE = 8
+        private const val MAX_PHASH_DISTANCE = 4
         const val SESSION_PREFS = "coc_ai_session"
         const val KEY_CAPTURE_ACTIVE = "capture_active"
         const val KEY_LAST_STARTED_AT = "last_started_at"
