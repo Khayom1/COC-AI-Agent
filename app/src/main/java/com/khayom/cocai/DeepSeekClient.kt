@@ -115,14 +115,20 @@ object DeepSeekClient {
             - Russian "Столица клана" => CLAN_CAPITAL
 
             REJECT Events, Event Missions, Season Challenges, Clan Games, Clan War,
-            shop, village, building-detail, army, settings, chat, and every other screen.
-            If uncertain, set screen_type to NOT_ACHIEVEMENTS and tasks to [].
+            shop, building-detail, army, settings, chat, and every other screen.
+            For a non-achievement screenshot classify game_screen as:
+            - VILLAGE_HOME only when the main village base and player badge are visible
+            - PLAYER_PROFILE when the player profile panel is open but achievement rows are not visible
+            - OTHER for every uncertain or unrelated screen
+            Never request a tap, purchase, upgrade, troop deployment, or battle action.
+            If uncertain, set screen_type to NOT_ACHIEVEMENTS, game_screen to OTHER and tasks to [].
             Never invent text or numbers. Use null for unreadable values.
-            Parse all visible achievement rows. The app may scan further pages later.
+            Parse all visible achievement rows.
 
             Return one valid JSON object only:
             {
               "screen_type": "ACHIEVEMENTS" or "NOT_ACHIEVEMENTS",
+              "game_screen": "ACHIEVEMENTS" or "VILLAGE_HOME" or "PLAYER_PROFILE" or "OTHER",
               "tab": "HOME_VILLAGE" or "BUILDER_BASE" or "CLAN_CAPITAL" or "UNKNOWN",
               "reason": "brief explanation",
               "tasks": [
@@ -230,8 +236,12 @@ object DeepSeekClient {
         }
 
         if (json.optString("screen_type") != "ACHIEVEMENTS") {
+            val reportedScreen = json.optString("game_screen")
+            val gameScreen = if (reportedScreen == "VILLAGE_HOME" ||
+                reportedScreen == "PLAYER_PROFILE") reportedScreen else "OTHER"
             return JSONObject()
                 .put("screen_type", "NOT_ACHIEVEMENTS")
+                .put("game_screen", gameScreen)
                 .put("reason", json.optString("reason", "Ин экран Achievement нест."))
                 .put("tasks", JSONArray())
                 .toString()
@@ -241,6 +251,7 @@ object DeepSeekClient {
         if (tab !in allowedTabs) {
             return JSONObject()
                 .put("screen_type", "NOT_ACHIEVEMENTS")
+                .put("game_screen", "PLAYER_PROFILE")
                 .put("reason", "Бахши Achievement номуайян аст.")
                 .put("tasks", JSONArray())
                 .toString()
@@ -277,6 +288,7 @@ object DeepSeekClient {
 
         return JSONObject()
             .put("screen_type", "ACHIEVEMENTS")
+            .put("game_screen", "ACHIEVEMENTS")
             .put("tab", tab)
             .put("reason", json.optString("reason", "Achievement screen recognized"))
             .put("tasks", normalized)
