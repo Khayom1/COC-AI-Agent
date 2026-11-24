@@ -15,9 +15,9 @@ The scanner is not intended for Event Missions, Season Challenges, Clan Games, o
 - Kotlin Android app; minimum Android 8, tested target SDK 36.
 - Fixed package allowlist for the official Clash of Clans package: `com.supercell.clashofclans`.
 - User-authorized MediaProjection screen capture, with a 30 FPS processing ceiling.
-- Floating START / SCAN / STOP controls.
+- Floating START / STOP controls; START resumes the saved Achievement database.
 - Foreground-package guard using Android Usage Access.
-- Optional DeepSeek Vision analysis using `deepseek-flash`.
+- Automatic DeepSeek Vision analysis when a stable captured screen changes, with a request interval limit.
 - User's API key is encrypted with AES-GCM and an Android Keystore key.
 - Achievement screenshots are cropped toward the central panel before being sent to DeepSeek.
 - Basic completion-time estimates after multiple progress observations separated in time.\n- No raw screenshot archive is retained by default.
@@ -25,9 +25,9 @@ The scanner is not intended for Event Missions, Season Challenges, Clan Games, o
 
 ## Important limits
 
-This project is a passive, read-only screen analyzer. It does not tap Clash of Clans controls, deploy troops, automate battles, modify game memory, inject code, or interact with game servers. The user navigates the game and selects SCAN.
+This project is a passive, read-only screen analyzer. It does not tap Clash of Clans controls, deploy troops, automate battles, modify game memory, inject code, or interact with game servers. The user opens the game and navigates to Profile → Achievements; the app observes and analyzes changed frames while the session is active. The Achievement database is preserved between STOP and START.
 
-For building/army-level context, the user must navigate to the relevant screen manually. The MVP's AI parser deliberately accepts only the three Achievement tabs.
+For building/army-level context, the user must navigate to the relevant screen manually. The MVP's AI parser deliberately accepts only the three Achievement tabs. The app does not automatically open the profile, tap game controls, or scroll the list.
 
 Supercell's current published policies prohibit bots/gameplay automation and unauthorized third-party software that modifies or interferes with game play. Read-only observation does not constitute official Supercell approval; use at your own account risk and review the current policies before live-game use.
 
