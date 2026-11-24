@@ -282,10 +282,10 @@ class MainActivity : Activity() {
     private fun toast(message: String) =
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
-    private fun text(value: String, size: Float, color: Int, bold: Boolean): TextView =
+    private fun text(value: String, size: Int, color: Int, bold: Boolean): TextView =
         TextView(this).apply {
             text = value
-            textSize = size
+            textSize = size.toFloat()
             setTextColor(color)
             if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
             setPadding(0, dp(5), 0, dp(5))
