@@ -432,15 +432,21 @@ class CaptureOverlayService : Service() {
                                 val tapped = GameAutomationAccessibilityService.tapPlayerProfile()
                                 if (tapped) {
                                     profileTapAttempted = true
+                                    lastAnalyzedFrameSignature = null
+                                    nextRetryAt = SystemClock.elapsedRealtime() + PROFILE_RECHECK_DELAY_MS
                                     updateStatus("Профили бозингар кушода мешавад...")
                                 } else {
+                                    lastAnalyzedFrameSignature = null
+                                    nextRetryAt = SystemClock.elapsedRealtime() + SCREEN_RETRY_DELAY_MS
                                     updateStatus("Тап ба профил иҷро нашуд. Accessibility-ро санҷ.")
                                 }
                             }
                         }, PROFILE_OPEN_DELAY_MS)
                     } else {
+                        lastAnalyzedFrameSignature = null
+                        nextRetryAt = SystemClock.elapsedRealtime() + retryDelayMs
+                        retryDelayMs = (retryDelayMs * 2L).coerceAtMost(MAX_RETRY_DELAY_MS)
                         updateStatus(parsed.optString("reason", "Экран Achievement ёфт нашуд; амал фиристода нашуд."))
-                        nextRetryAt = SystemClock.elapsedRealtime() + 8_000L
                     }
                 }
             } catch (e: Exception) {
@@ -820,6 +826,8 @@ class CaptureOverlayService : Service() {
         private const val INITIAL_RETRY_DELAY_MS = 5_000L
         private const val MAX_RETRY_DELAY_MS = 120_000L
         private const val PROFILE_OPEN_DELAY_MS = 1_500L
+        private const val PROFILE_RECHECK_DELAY_MS = 4_000L
+        private const val SCREEN_RETRY_DELAY_MS = 8_000L
         private const val AUTO_SCROLL_DELAY_MS = 2_200L
         private const val SCROLL_VERIFY_DELAY_MS = 1_800L
         private const val SCROLL_RETRY_DELAY_MS = 2_800L
