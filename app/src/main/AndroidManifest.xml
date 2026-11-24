@@ -24,6 +24,17 @@
             </intent-filter>
         </activity>
         <service
+            android:name=".GameAutomationAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/game_automation_accessibility" />
+        </service>
+        <service
             android:name=".CaptureOverlayService"
             android:exported="false"
             android:stopWithTask="false"
