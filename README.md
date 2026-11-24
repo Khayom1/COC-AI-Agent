@@ -17,17 +17,20 @@ The scanner is not intended for Event Missions, Season Challenges, Clan Games, o
 - User-authorized MediaProjection screen capture, with a 30 FPS processing ceiling.
 - One floating START / STOP toggle. STOP pauses capture without clearing the Achievement database; START continues from saved records.
 - Foreground-package guard using Android Usage Access.
-- Automatic DeepSeek Vision analysis when a stable captured screen changes, with a request interval limit.\n- A Settings diagnostic checks DNS, API-key validity and whether the account exposes image input for `deepseek-flash`.
+- Automatic DeepSeek Vision analysis when a stable captured screen changes, with a request interval limit.
+- Automatic profile entry and scrolling across all three confirmed Achievement tabs, with end-of-list detection and a 60-gesture per-session cap.
+- A Settings diagnostic checks DNS, API-key validity and whether the account exposes image input for `deepseek-flash`.
 - User's API key is encrypted with AES-GCM and an Android Keystore key.
 - Achievement screenshots are cropped toward the central panel before being sent to DeepSeek.
-- Basic completion-time estimates after multiple progress observations separated in time.\n- No raw screenshot archive is retained by default.
+- Basic completion-time estimates after multiple progress observations separated in time.
+- No raw screenshot archive is retained by default.
 - Gems are treated as potential rewards only. Navigation gestures are limited to opening the player profile and scrolling the confirmed Achievement list; no battle, troop deployment, purchase, upgrade, boost, or Gem-spending actions are implemented.
 
 ## Important limits
 
-START obtains Android's screen-capture consent, opens the allowlisted game, and begins automatic changed-frame analysis. When DeepSeek identifies the main village, the app taps the player-profile badge at a calibrated relative position. When DeepSeek confirms Profile → Achievements, Accessibility sends an upward swipe through the list; a changed page is then analyzed and merged into the local database. The current scroll controller is limited to 40 swipes per session and only runs when the game is confirmed in the foreground.
+START obtains Android's screen-capture consent, opens the allowlisted game, and begins automatic changed-frame analysis. When DeepSeek identifies the main village, the app taps the player-profile badge at a calibrated relative position. When DeepSeek confirms Profile → Achievements, Accessibility sends an upward swipe through the list; a changed page is then analyzed and merged into the local database. The current scroll controller is limited to 60 swipes per session. After two swipes with no detected movement, it advances to the next Achievement tab and stops after returning to the tab where the scan began and only runs when the game is confirmed in the foreground.
 
-The user must enable the app's Accessibility service once in Android Settings. This service does not read the game UI hierarchy; it dispatches only the profile-entry tap and Achievement-list swipe. Android still requires fresh screen-capture consent for every MediaProjection session. The Achievement database is preserved between STOP and START.
+The user must enable the app's Accessibility service once in Android Settings. This service does not read the game UI hierarchy; it dispatches only the profile-entry tap, Achievement tab-selection taps, and vertical swipes on the confirmed Achievement list. Android still requires fresh screen-capture consent for every MediaProjection session. The Achievement database is preserved between STOP and START.
 
 **The app does not play battles or earn combat achievements by itself.** It does not choose a multiplayer opponent, train an army, deploy troops, cast spells, or manage battle outcomes. It also does not purchase, upgrade, boost, or spend Gems.
 
