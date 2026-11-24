@@ -67,21 +67,32 @@ class GameAutomationAccessibilityService : AccessibilityService() {
         return true
     }
 
-    fun tapPlayerProfile(): Boolean {
+    private fun tapNormalized(relativeX: Float, relativeY: Float): Boolean {
         if (gestureInFlight.get()) return false
         val metrics = resources.displayMetrics
         val width = metrics.widthPixels.toFloat()
         val height = metrics.heightPixels.toFloat()
         if (width <= 0f || height <= 0f || width < height) return false
-
-        // Clash of Clans player-level/profile badge: upper-left corner.
-        val x = width * PROFILE_BADGE_X
-        val y = height * PROFILE_BADGE_Y
+        val x = width * relativeX
+        val y = height * relativeY
         val path = Path().apply {
             moveTo(x, y)
             lineTo(x + 1f, y + 1f)
         }
         return dispatchPathOnMainThread(path, TAP_DURATION_MS)
+    }
+
+    fun tapPlayerProfile(): Boolean =
+        tapNormalized(PROFILE_BADGE_X, PROFILE_BADGE_Y)
+
+    fun tapAchievementTab(tabIndex: Int): Boolean {
+        val point = when (tabIndex) {
+            0 -> HOME_TAB_X
+            1 -> BUILDER_TAB_X
+            2 -> CAPITAL_TAB_X
+            else -> return false
+        }
+        return tapNormalized(point, ACHIEVEMENT_TABS_Y)
     }
 
     fun scrollAchievementList(): Boolean {
@@ -108,6 +119,10 @@ class GameAutomationAccessibilityService : AccessibilityService() {
     companion object {
         private const val PROFILE_BADGE_X = 0.066f
         private const val PROFILE_BADGE_Y = 0.068f
+        private const val HOME_TAB_X = 0.292f
+        private const val BUILDER_TAB_X = 0.501f
+        private const val CAPITAL_TAB_X = 0.703f
+        private const val ACHIEVEMENT_TABS_Y = 0.146f
         private const val SCROLL_X = 0.50f
         private const val SCROLL_START_Y = 0.74f
         private const val SCROLL_END_Y = 0.32f
@@ -130,6 +145,9 @@ class GameAutomationAccessibilityService : AccessibilityService() {
 
         fun scrollAchievementList(): Boolean =
             activeService?.scrollAchievementList() ?: false
+
+        fun tapAchievementTab(tabIndex: Int): Boolean =
+            activeService?.tapAchievementTab(tabIndex) ?: false
 
         fun isConnected(): Boolean = activeService != null
     }
