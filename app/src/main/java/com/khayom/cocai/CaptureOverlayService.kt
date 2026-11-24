@@ -530,18 +530,20 @@ class CaptureOverlayService : Service() {
             setPadding(dp(8), dp(2), dp(8), dp(5))
         }
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        overlayStartButton = overlayButton("START", Color.rgb(30, 135, 70)) {
+        val startButton = overlayButton("START", Color.rgb(30, 135, 70)) {
             val open = Intent(this, MainActivity::class.java).apply {
                 action = MainActivity.ACTION_START_FROM_OVERLAY
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             startActivity(open)
         }
-        overlayStopButton = overlayButton("STOP", Color.rgb(168, 48, 48)) {
+        val stopButton = overlayButton("STOP", Color.rgb(168, 48, 48)) {
             startService(Intent(this, CaptureOverlayService::class.java).setAction(ACTION_STOP_CAPTURE))
         }
-        actions.addView(overlayStartButton)
-        actions.addView(overlayStopButton)
+        overlayStartButton = startButton
+        overlayStopButton = stopButton
+        actions.addView(startButton)
+        actions.addView(stopButton)
         panel.addView(header)
         panel.addView(overlayStatus)
         panel.addView(actions)
