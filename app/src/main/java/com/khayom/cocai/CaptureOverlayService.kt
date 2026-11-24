@@ -663,8 +663,8 @@ class CaptureOverlayService : Service() {
         private const val NOTIFICATION_ID = 103
         private const val FRAME_INTERVAL_MS = 33L
         private const val AUTO_SCAN_POLL_MS = 1_000L
-        private const val FRAME_STABLE_MS = 1_500L
-        private const val MIN_AUTO_ANALYSIS_INTERVAL_MS = 8_000L
+        private const val FRAME_STABLE_MS = 900L
+        private const val MIN_AUTO_ANALYSIS_INTERVAL_MS = 3_500L
         private const val PHASH_SIZE = 8
         private const val MAX_PHASH_DISTANCE = 4
         const val SESSION_PREFS = "coc_ai_session"
