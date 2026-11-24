@@ -132,9 +132,6 @@ object DeepSeekClient {
 
     private fun validateAndFormat(raw: String): String {
         val cleaned = raw.trim()
-            .removePrefix("'''json")
-            .removePrefix("'''")
-            .removeSuffix("'''")
             .removePrefix("```json")
             .removePrefix("```")
             .removeSuffix("```")
@@ -144,28 +141,24 @@ object DeepSeekClient {
         }
 
         if (json.optString("screen_type") != "ACHIEVEMENTS") {
-            return "Экрани «Достижения» муайян нашуд.
-" +
-                    json.optString("reason", "Ин экран ба бахшҳои Achievement дохил намешавад.")
+            return JSONObject()
+                .put("screen_type", "NOT_ACHIEVEMENTS")
+                .put("reason", json.optString("reason", "Ин экран Achievement нест."))
+                .put("tasks", JSONArray())
+                .toString()
         }
 
         val tab = json.optString("tab")
         if (tab !in allowedTabs) {
-            return "Бахши Achievement номуайян аст. Маълумот ҳамчун вазифа сабт нашуд."
+            return JSONObject()
+                .put("screen_type", "NOT_ACHIEVEMENTS")
+                .put("reason", "Бахши Achievement номуайян аст.")
+                .put("tasks", JSONArray())
+                .toString()
         }
 
         val tasks = json.optJSONArray("tasks") ?: JSONArray()
-        if (tasks.length() == 0) {
-            return "Саҳифаи Achievement шинохта шуд, аммо сатри боэътимод хонда нашуд."
-        }
-
-        data class Task(
-            val title: String, val current: Int?, val target: Int?,
-            val gems: Int?, val confidence: Double, val completed: Boolean,
-            val remaining: Int?, val score: Double
-        )
-
-        val parsed = mutableListOf<Task>()
+        val normalized = JSONArray()
         for (i in 0 until tasks.length()) {
             val item = tasks.optJSONObject(i) ?: continue
             val title = item.optString("title").trim()
@@ -174,48 +167,25 @@ object DeepSeekClient {
             val current = item.intOrNull("current_progress")
             val target = item.intOrNull("target_progress")
             val gems = item.intOrNull("gems_reward")?.coerceAtLeast(0)
-            val confidence = item.optDouble("confidence", 0.0).coerceIn(0.0, 1.0)
             val completed = item.optBoolean("completed", false) ||
                 (current != null && target != null && target > 0 && current >= target)
-            val remaining = if (current != null && target != null && target >= current) {
-                target - current
-            } else null
-            val progress = if (current != null && target != null && target > 0) {
-                (current.toDouble() / target).coerceIn(0.0, 1.0)
-            } else 0.0
-            val rewardScore = ((gems ?: 0) / 300.0).coerceIn(0.0, 1.0)
-            val score = (progress * 0.55 + rewardScore * 0.25 + confidence * 0.20) * 100.0
-            parsed += Task(title, current, target, gems, confidence, completed, remaining, score)
+            normalized.put(JSONObject()
+                .put("title", title)
+                .put("description", item.optString("description", ""))
+                .put("current_progress", current ?: JSONObject.NULL)
+                .put("target_progress", target ?: JSONObject.NULL)
+                .put("xp_reward", item.intOrNull("xp_reward") ?: JSONObject.NULL)
+                .put("gems_reward", gems ?: JSONObject.NULL)
+                .put("completed", completed)
+                .put("confidence", item.optDouble("confidence", 0.0).coerceIn(0.0, 1.0)))
         }
 
-        val locale = Locale("ru", "RU")
-        val format = NumberFormat.getIntegerInstance(locale)
-        val todo = parsed.filterNot { it.completed }.sortedByDescending { it.score }
-        return buildString {
-            appendLine("Бахш: ${tabLabel(tab)}")
-            appendLine("Вазифаҳои хондашуда: ${parsed.size}")
-            appendLine("Анҷомшуда: ${parsed.count { it.completed }}")
-            appendLine("Кристаллҳо танҳо мукофотанд; сарф кардани онҳо дар барнома вуҷуд надорад.")
-            appendLine()
-            if (todo.isEmpty()) {
-                appendLine("Дар рӯйхати намоён вазифаи нотамом нест.")
-            } else {
-                appendLine("АВЛАВИЯҲО:")
-                todo.take(20).forEachIndexed { index, task ->
-                    appendLine("${index + 1}. ${task.title}")
-                    if (task.current != null && task.target != null) {
-                        appendLine("   Пешрафт: ${format.format(task.current)} / ${format.format(task.target)}")
-                        task.remaining?.let { appendLine("   Боқимонда: ${format.format(it)}") }
-                    } else {
-                        appendLine("   Пешрафт: хонда нашуд")
-                    }
-                    task.gems?.let { appendLine("   Мукофоти кристалл: $it") }
-                    appendLine("   Эътимоди хондан: ${(task.confidence * 100).toInt()}%")
-                }
-            }
-            appendLine()
-            append("Рейтинг аз пешрафт, мукофоти намоён ва эътимоди хондан сохта шуд. Вақт ва қудрати ҷангро ин скриншот танҳо муайян карда наметавонад.")
-        }
+        return JSONObject()
+            .put("screen_type", "ACHIEVEMENTS")
+            .put("tab", tab)
+            .put("reason", json.optString("reason", "Achievement screen recognized"))
+            .put("tasks", normalized)
+            .toString()
     }
 
     private fun JSONObject.intOrNull(name: String): Int? {
