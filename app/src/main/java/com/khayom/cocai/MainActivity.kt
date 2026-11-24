@@ -112,7 +112,7 @@ class MainActivity : Activity() {
         titleBox.addView(label("Achievement intelligence", 12f, MUTED, false))
         header.addView(mark)
         header.addView(titleBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        header.addView(label("v0.3.1", 11f, MUTED, true))
+        header.addView(label("v0.4.0", 11f, MUTED, true))
         root.addView(header)
         root.addView(space(18))
 
