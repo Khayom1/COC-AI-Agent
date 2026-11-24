@@ -208,8 +208,8 @@ class CaptureOverlayService : Service() {
             autoScrollCount = 0
             workerHandler?.removeCallbacks(autoScanRunnable)
             workerHandler?.postDelayed(autoScanRunnable, AUTO_SCAN_POLL_MS)
-            overlayStatus?.post { overlayStatus?.text = "COC AI • ACTIVE" }
-            updateStatus("Сканер фаъол аст. То 30 FPS; Achievement худкор таҳлил мешавад.")
+            updateOverlayControls()
+            updateStatus("Сканер фаъол аст. То 30 FPS; профил ва скролли Achievement худкор идора мешаванд.")
         } catch (e: Exception) {
             stopProjectionKeepOverlay()
             updateStatus("Сабти экран оғоз нашуд: ${e.message ?: "номаълум"}")
