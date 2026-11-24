@@ -192,7 +192,7 @@ class MainActivity : Activity() {
         root.addView(resultsCard, matchWrap())
         root.addView(space(16))
 
-        root.addView(sectionHeading("DEEPSEEK API", "Калиди шахсии худро дар ҳамин дастгоҳ нигоҳ дор"))
+        root.addView(sectionHeading("DEEPSEEK API", "Калид дар дастгоҳ рамзгузорӣ мешавад; тасвири буридашуда ба DeepSeek фиристода мешавад"))
         val apiCard = card()
         keyEdit = EditText(this).apply {
             hint = "DeepSeek API key"
