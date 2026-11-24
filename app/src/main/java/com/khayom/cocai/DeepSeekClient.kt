@@ -103,7 +103,8 @@ object DeepSeekClient {
         val request = JSONObject()
             .put("model", MODEL)
             .put("temperature", 0)
-            .put("max_tokens", 3500)
+            .put("reasoning_effort", "none")
+            .put("max_tokens", 6000)
             .put("response_format", JSONObject().put("type", "json_object"))
             .put("messages", JSONArray().put(message))
 
@@ -194,20 +195,26 @@ object DeepSeekClient {
             val title = item.optString("title").trim()
             if (title.isBlank() || title == "null") continue
 
-            val current = item.intOrNull("current_progress")
-            val target = item.intOrNull("target_progress")
-            val gems = item.intOrNull("gems_reward")?.coerceAtLeast(0)
+            val confidence = item.optDouble("confidence", 0.0).coerceIn(0.0, 1.0)
+            // Do not silently add weak visual guesses to the permanent task library.
+            if (confidence < MIN_TASK_CONFIDENCE) continue
+
+            val current = item.intOrNull("current_progress")?.takeIf { it >= 0 }
+            val target = item.intOrNull("target_progress")?.takeIf { it > 0 }
+            val gems = item.intOrNull("gems_reward")?.takeIf { it >= 0 }
+            val xp = item.intOrNull("xp_reward")?.takeIf { it >= 0 }
+            val description = item.optString("description", "").take(MAX_DESCRIPTION_LENGTH)
             val completed = item.optBoolean("completed", false) ||
-                (current != null && target != null && target > 0 && current >= target)
+                (current != null && target != null && current >= target)
             normalized.put(JSONObject()
-                .put("title", title)
-                .put("description", item.optString("description", ""))
+                .put("title", title.take(MAX_TITLE_LENGTH))
+                .put("description", description)
                 .put("current_progress", current ?: JSONObject.NULL)
                 .put("target_progress", target ?: JSONObject.NULL)
-                .put("xp_reward", item.intOrNull("xp_reward") ?: JSONObject.NULL)
+                .put("xp_reward", xp ?: JSONObject.NULL)
                 .put("gems_reward", gems ?: JSONObject.NULL)
                 .put("completed", completed)
-                .put("confidence", item.optDouble("confidence", 0.0).coerceIn(0.0, 1.0)))
+                .put("confidence", confidence))
         }
 
         return JSONObject()
@@ -217,6 +224,10 @@ object DeepSeekClient {
             .put("tasks", normalized)
             .toString()
     }
+
+    private const val MIN_TASK_CONFIDENCE = 0.50
+    private const val MAX_TITLE_LENGTH = 100
+    private const val MAX_DESCRIPTION_LENGTH = 240
 
     private fun JSONObject.intOrNull(name: String): Int? {
         if (isNull(name)) return null
