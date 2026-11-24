@@ -233,6 +233,27 @@ class MainActivity : Activity() {
         }, textColor = MUTED, textSize = 11f,
             params = LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(5) }))
         apiCard.addView(apiButtons)
+        apiCard.addView(space(8))
+        apiCard.addView(actionButton("САНҶИШИ ПАЙВАСТШАВӢ", CARD_BUTTON, {
+            val typedKey = keyEdit.text?.toString().orEmpty().trim()
+            val apiKey = typedKey.ifBlank { SecureKeyStore.read(this).orEmpty() }
+            if (apiKey.isBlank()) {
+                toast("Аввал DeepSeek API Key-ро ворид ва захира кун.")
+            } else {
+                statusText.text = "DeepSeek: санҷиши DNS, API Key ва модели Vision..."
+                Thread {
+                    val outcome = try {
+                        DeepSeekClient.testConnection(apiKey)
+                    } catch (e: Exception) {
+                        "Санҷиш ноком шуд: ${e.message ?: "хатои номаълум"}"
+                    }
+                    runOnUiThread {
+                        statusText.text = outcome
+                        resultText.text = outcome
+                    }
+                }.start()
+            }
+        }, textColor = BLUE_TEXT, textSize = 11f))
         root.addView(apiCard, matchWrap())
         root.addView(space(16))
 
