@@ -135,7 +135,10 @@ object AchievementStore {
             .put("schema_version", 1)
             .put("updated_at", now)
             .put("tasks", outputTasks)
-        prefs.edit().putString(DATABASE_KEY, outDb.toString()).apply()
+        val saved = prefs.edit().putString(DATABASE_KEY, outDb.toString()).commit()
+        if (!saved) {
+            throw IllegalStateException("Achievement database ба хотираи телефон сабт нашуд.")
+        }
 
         return format(merged.values.toList(), tab, accepted)
     }
@@ -210,22 +213,26 @@ object AchievementStore {
             val current = item.intOrNull("current_progress")
             val target = item.intOrNull("target_progress")
             val gems = (item.intOrNull("gems_reward") ?: 0).coerceAtLeast(0)
+            val xp = (item.intOrNull("xp_reward") ?: 0).coerceAtLeast(0)
             val confidence = item.optDouble("confidence", 0.0).coerceIn(0.0, 1.0)
             val completed = item.optBoolean("completed") ||
                 (current != null && target != null && target > 0 && current >= target)
             val ratio = if (current != null && target != null && target > 0) {
                 (current.toDouble() / target).coerceIn(0.0, 1.0)
             } else 0.0
-            val rewardScore = (gems / 300.0).coerceIn(0.0, 1.0)
+            val gemRewardScore = (gems / 300.0).coerceIn(0.0, 1.0)
+            val xpRewardScore = (xp / 1_000.0).coerceIn(0.0, 1.0)
             val remaining = if (current != null && target != null && target >= current) {
                 target - current
             } else null
             val eta = estimateHours(item, remaining)
             val speedScore = eta?.let { (1.0 / (1.0 + it / 24.0)).coerceIn(0.0, 1.0) }
             val score = if (speedScore != null) {
-                ratio * 0.35 + rewardScore * 0.25 + confidence * 0.15 + speedScore * 0.25
+                ratio * 0.35 + gemRewardScore * 0.20 + xpRewardScore * 0.10 +
+                    confidence * 0.15 + speedScore * 0.20
             } else {
-                ratio * 0.55 + rewardScore * 0.25 + confidence * 0.20
+                ratio * 0.45 + gemRewardScore * 0.25 + xpRewardScore * 0.15 +
+                    confidence * 0.15
             }
             Ranked(item, completed, score, remaining, eta)
         }
@@ -257,7 +264,8 @@ object AchievementStore {
                     } else {
                         appendLine("   Пешрафт: хонда нашуд")
                     }
-                    item.intOrNull("gems_reward")?.let { appendLine("   Мукофоти кристалл: $it") }
+                    item.intOrNull("gems_reward")?.let { appendLine("   Мукофоти кристалл: $it (танҳо мукофот)") }
+                    item.intOrNull("xp_reward")?.let { appendLine("   XP: $it") }
                     ranked.etaHours?.let { appendLine("   Вақти тахминӣ: ${formatDuration(it)}") }
                         ?: appendLine("   Вақти анҷом: ҳоло маълум нест")
                     appendLine("   Эътимоди хондан: ${(item.optDouble("confidence", 0.0) * 100).toInt()}%")
