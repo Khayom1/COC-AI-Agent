@@ -152,6 +152,51 @@ object AchievementStore {
         catch (_: Exception) { 0 }
     }
 
+    fun dashboardSummary(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val database = try {
+            JSONObject(prefs.getString(DATABASE_KEY, "{}") ?: "{}")
+        } catch (_: Exception) {
+            JSONObject()
+        }
+        val tasks = database.optJSONArray("tasks") ?: JSONArray()
+        var completed = 0
+        var home = 0
+        var builder = 0
+        var capital = 0
+
+        for (index in 0 until tasks.length()) {
+            val task = tasks.optJSONObject(index) ?: continue
+            val tab = task.optString("tab")
+            val current = task.intOrNull("current_progress")
+            val target = task.intOrNull("target_progress")
+            val isDone = task.optBoolean("completed") ||
+                (current != null && target != null && target > 0 && current >= target)
+            if (isDone) completed++
+            when (tab) {
+                "HOME_VILLAGE" -> home++
+                "BUILDER_BASE" -> builder++
+                "CLAN_CAPITAL" -> capital++
+            }
+        }
+
+        val updatedAt = database.optLong("updated_at", 0L)
+        val lastScan = if (updatedAt > 0L) {
+            java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+                .format(java.util.Date(updatedAt))
+        } else "ҳоло скан нашудааст"
+
+        return buildString {
+            appendLine("Дар хотира: ${tasks.length()} Achievement")
+            appendLine("Анҷомшуда: $completed  •  Боқимонда: ${(tasks.length() - completed).coerceAtLeast(0)}")
+            appendLine()
+            appendLine("Родная деревня: $home")
+            appendLine("Деревня строителя: $builder")
+            appendLine("Столица клана: $capital")
+            append("Сканкунии охирин: $lastScan")
+        }
+    }
+
     private fun format(tasks: List<JSONObject>, lastTab: String, scannedCount: Int): String {
         data class Ranked(
             val item: JSONObject,
