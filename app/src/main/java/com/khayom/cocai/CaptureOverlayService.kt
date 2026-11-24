@@ -401,7 +401,7 @@ class CaptureOverlayService : Service() {
                 }
             } catch (e: Exception) {
                 if (isCapturing && sessionGeneration.get() == generation) {
-                    lastAnalyzedFrameSignature = 0L
+                    lastAnalyzedFrameSignature = null
                     nextRetryAt = SystemClock.elapsedRealtime() + retryDelayMs
                     retryDelayMs = (retryDelayMs * 2L).coerceAtMost(MAX_RETRY_DELAY_MS)
                     val message = "Хатои таҳлил: ${e.message ?: "номаълум"}"
@@ -412,7 +412,7 @@ class CaptureOverlayService : Service() {
             } finally {
                 if (!copy.isRecycled) copy.recycle()
                 if (sessionGeneration.get() != generation) {
-                    lastAnalyzedFrameSignature = 0L
+                    lastAnalyzedFrameSignature = null
                 }
                 analyzing.set(false)
             }
