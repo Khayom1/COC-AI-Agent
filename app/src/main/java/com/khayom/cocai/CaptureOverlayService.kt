@@ -345,12 +345,14 @@ class CaptureOverlayService : Service() {
         val cropWidth = (bitmap.width * 0.84f).toInt().coerceAtMost(bitmap.width - left).coerceAtLeast(1)
         val cropHeight = (bitmap.height * 0.88f).toInt().coerceAtMost(bitmap.height - top).coerceAtLeast(1)
         val crop = Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
-        val sample = Bitmap.createScaledBitmap(crop, FRAME_SIGNATURE_SIZE, FRAME_SIGNATURE_SIZE, true)
+        val sample = Bitmap.createScaledBitmap(
+            crop, FRAME_SIGNATURE_WIDTH, FRAME_SIGNATURE_HEIGHT, true
+        )
         return try {
-            val pixels = IntArray(FRAME_SIGNATURE_SIZE * FRAME_SIGNATURE_SIZE)
+            val pixels = IntArray(FRAME_SIGNATURE_WIDTH * FRAME_SIGNATURE_HEIGHT)
             sample.getPixels(
-                pixels, 0, FRAME_SIGNATURE_SIZE, 0, 0,
-                FRAME_SIGNATURE_SIZE, FRAME_SIGNATURE_SIZE
+                pixels, 0, FRAME_SIGNATURE_WIDTH, 0, 0,
+                FRAME_SIGNATURE_WIDTH, FRAME_SIGNATURE_HEIGHT
             )
             IntArray(pixels.size) { index ->
                 val color = pixels[index]
@@ -823,7 +825,8 @@ class CaptureOverlayService : Service() {
         private const val SCROLL_RETRY_DELAY_MS = 2_800L
         private const val MAX_NO_CHANGE_SCROLLS = 2
         private const val MAX_AUTO_SCROLLS = 60
-        private const val FRAME_SIGNATURE_SIZE = 16
+        private const val FRAME_SIGNATURE_WIDTH = 56
+        private const val FRAME_SIGNATURE_HEIGHT = 34
         private const val MAX_FRAME_DIFFERENCE = 6.0
         const val SESSION_PREFS = "coc_ai_session"
         const val KEY_CAPTURE_ACTIVE = "capture_active"
