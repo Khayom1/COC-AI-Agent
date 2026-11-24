@@ -229,7 +229,7 @@ The first Android source drop now implements:
 - AES-GCM encryption of the user's key using Android Keystore.
 - A central no-game-input / no-gem-spending policy guard.
 
-The current MVP sends a cropped image to DeepSeek for semantic parsing. Local OCR, continuous list aggregation across multiple scroll positions, persistent achievement history, historical pace learning, and the full recommendation model remain planned work and must not be described as implemented until added and tested.
+The current MVP sends a cropped image to DeepSeek for semantic parsing and merges validated rows into a local, deduplicated Achievement database across manual scroll-and-scan passes. Local OCR, historical pace learning, automatic list navigation, and a complete combat-power feasibility model remain planned work and must not be described as implemented until added and tested.
 
 ### User-driven extra context
 
