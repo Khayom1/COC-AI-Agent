@@ -154,14 +154,15 @@ class MainActivity : Activity() {
 
         root.addView(sectionHeading("ИДОРАКУНӢ", "Маълумот нигоҳ дошта мешавад; STOP онро пок намекунад"))
         val sessionCard = card()
-        sessionToggleButton = actionButton(
+        val toggleButton = actionButton(
             "▶  START", GREEN, { toggleCaptureSession() },
             textSize = 15f,
             params = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(54)
             )
         )
-        sessionCard.addView(sessionToggleButton)
+        sessionToggleButton = toggleButton
+        sessionCard.addView(toggleButton)
         sessionCard.addView(space(10))
         sessionCard.addView(label(
             "START: бозиро мекушояд, профилро меёбад ва рӯйхати Achievement-ро худкор скролл мекунад. STOP: танҳо сессияро таваққуф медиҳад; базаи ҷамъшуда пок намешавад.\n\nБарои тап ва скролл Accessibility як бор фаъол карда мешавад. Android барои сабти экран дар ҳар START иҷозат мепурсад. Ҷанг ва анҷом додани Achievement-ҳо ҳанӯз автоматӣ нестанд.",
