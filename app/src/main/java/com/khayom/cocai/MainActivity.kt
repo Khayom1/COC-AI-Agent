@@ -108,13 +108,13 @@ class MainActivity : Activity() {
             13, Color.LTGRAY, false
         ))
         root.addView(button("START — ОҒОЗИ СКАНЕР") { startCaptureFlow() }, matchWrap())
-        root.addView(button("SCAN — ТАҲЛИЛИ КАДРИ ОХИР") {
-            startService(Intent(this, CaptureOverlayService::class.java)
-                .setAction(CaptureOverlayService.ACTION_ANALYZE))
-        }, matchWrap())
-        root.addView(button("STOP — ҚАТЪИ СКАНЕР") {
-            startService(Intent(this, CaptureOverlayService::class.java)
-                .setAction(CaptureOverlayService.ACTION_STOP_CAPTURE))
+        root.addView(text(
+            "Вақте ки бозӣ кушода аст, барои таҳлил SCAN-и тугмаи шинокунандаро пахш кун.",
+            13, Color.LTGRAY, false
+        ))
+        root.addView(button("STOP — ҚАТЪИ ПУРРА") {
+            stopService(Intent(this, CaptureOverlayService::class.java))
+            toast("Сканер ва тугмаи шинокунанда қатъ шуданд.")
         }, matchWrap())
         root.addView(gap(12))
 
@@ -165,6 +165,11 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.rgb(29, 44, 61))
         }
         root.addView(resultText, matchWrap())
+        root.addView(button("ҲАЗФИ ТАЪРИХИ ACHIEVEMENT") {
+            AchievementStore.clear(this)
+            resultText.text = "Таърихи ҳамаи сканҳо ҳазф шуд."
+            toast("Таърихи Achievement пок карда шуд.")
+        }, matchWrap())
         root.addView(gap(14))
 
         root.addView(text(
