@@ -107,7 +107,7 @@ class GameAutomationAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val PROFILE_BADGE_X = 0.066f
-        private const val PROFILE_BADGE_Y = 0.075f
+        private const val PROFILE_BADGE_Y = 0.068f
         private const val SCROLL_X = 0.50f
         private const val SCROLL_START_Y = 0.74f
         private const val SCROLL_END_Y = 0.32f
