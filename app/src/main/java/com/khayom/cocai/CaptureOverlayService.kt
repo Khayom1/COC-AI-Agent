@@ -316,9 +316,10 @@ class CaptureOverlayService : Service() {
         if (now - lastAutoAnalysisAt < MIN_AUTO_ANALYSIS_INTERVAL_MS) return
         if (now < nextRetryAt) return
 
-        lastAnalyzedFrameSignature = candidateFrameSignature
-        lastAutoAnalysisAt = now
-        analyzeLatestFrame()
+        if (analyzeLatestFrame()) {
+            lastAnalyzedFrameSignature = candidateFrameSignature
+            lastAutoAnalysisAt = now
+        }
     }
 
     /**
@@ -355,14 +356,13 @@ class CaptureOverlayService : Service() {
     private fun hammingDistance(first: Long, second: Long): Int =
         java.lang.Long.bitCount(first xor second)
 
-    private fun analyzeLatestFrame() {
+    private fun analyzeLatestFrame(): Boolean {
         if (!isCapturing || !isAllowedGameForeground()) {
-            updateStatus("Барои SCAN, Clash of Clans бояд кушода ва мониторинг фаъол бошад.")
-            return
+            updateStatus("Clash of Clans кушода нест ё мониторинг таваққуф ёфтааст.")
+            return false
         }
         if (!analyzing.compareAndSet(false, true)) {
-            updateStatus("Як таҳлил аллакай иҷро шуда истодааст.")
-            return
+            return false
         }
 
         val generation = sessionGeneration.get()
@@ -372,9 +372,10 @@ class CaptureOverlayService : Service() {
         if (copy == null) {
             analyzing.set(false)
             updateStatus("Кадри экран ҳоло дастрас нест.")
-            return
+            return false
         }
 
+        updateStatus("DeepSeek Achievement-ро таҳлил мекунад...")
         Thread {
             try {
                 val key = SecureKeyStore.read(this)
@@ -408,6 +409,7 @@ class CaptureOverlayService : Service() {
                 analyzing.set(false)
             }
         }.start()
+        return true
     }
 
     private fun publishResult(result: String) {
