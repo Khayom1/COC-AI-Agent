@@ -1,6 +1,6 @@
 # COC AI Agent
 
-A read-only Android assistant for reviewing and prioritizing the built-in Clash of Clans **Profile → Achievements** list.
+An Android Achievement assistant for Clash of Clans. DeepSeek Vision reads the Achievement list; an opt-in Android Accessibility service can open the player profile and automatically scroll the confirmed Achievement page.
 
 ## Achievement tabs supported
 
@@ -15,19 +15,21 @@ The scanner is not intended for Event Missions, Season Challenges, Clan Games, o
 - Kotlin Android app; minimum Android 8, tested target SDK 36.
 - Fixed package allowlist for the official Clash of Clans package: `com.supercell.clashofclans`.
 - User-authorized MediaProjection screen capture, with a 30 FPS processing ceiling.
-- Floating START / STOP controls; START resumes the saved Achievement database.
+- One floating START / STOP toggle. STOP pauses capture without clearing the Achievement database; START continues from saved records.
 - Foreground-package guard using Android Usage Access.
 - Automatic DeepSeek Vision analysis when a stable captured screen changes, with a request interval limit.\n- A Settings diagnostic checks DNS, API-key validity and whether the account exposes image input for `deepseek-flash`.
 - User's API key is encrypted with AES-GCM and an Android Keystore key.
 - Achievement screenshots are cropped toward the central panel before being sent to DeepSeek.
 - Basic completion-time estimates after multiple progress observations separated in time.\n- No raw screenshot archive is retained by default.
-- Gems are treated as potential rewards only. The app has no game-input automation and cannot tap purchase, upgrade, boost, or spend controls.
+- Gems are treated as potential rewards only. Navigation gestures are limited to opening the player profile and scrolling the confirmed Achievement list; no battle, troop deployment, purchase, upgrade, boost, or Gem-spending actions are implemented.
 
 ## Important limits
 
-This project is a passive, read-only screen analyzer. It does not tap Clash of Clans controls, deploy troops, automate battles, modify game memory, inject code, or interact with game servers. START obtains Android's screen-capture consent, opens the allowlisted game, and begins automatic changed-frame analysis. The user must navigate to Profile → Achievements and scroll manually; there is no automated game tapping or scrolling. The Achievement database is preserved between STOP and START.
+START obtains Android's screen-capture consent, opens the allowlisted game, and begins automatic changed-frame analysis. When DeepSeek identifies the main village, the app taps the player-profile badge at a calibrated relative position. When DeepSeek confirms Profile → Achievements, Accessibility sends an upward swipe through the list; a changed page is then analyzed and merged into the local database. The current scroll controller is limited to 40 swipes per session and only runs when the game is confirmed in the foreground.
 
-For building/army-level context, the user must navigate to the relevant screen manually. The MVP's AI parser deliberately accepts only the three Achievement tabs. The app does not automatically open the profile, tap game controls, or scroll the list.
+The user must enable the app's Accessibility service once in Android Settings. This service does not read the game UI hierarchy; it dispatches only the profile-entry tap and Achievement-list swipe. Android still requires fresh screen-capture consent for every MediaProjection session. The Achievement database is preserved between STOP and START.
+
+**The app does not play battles or earn combat achievements by itself.** It does not choose a multiplayer opponent, train an army, deploy troops, cast spells, or manage battle outcomes. It also does not purchase, upgrade, boost, or spend Gems.
 
 Supercell's current published policies prohibit bots/gameplay automation and unauthorized third-party software that modifies or interferes with game play. Read-only observation does not constitute official Supercell approval; use at your own account risk and review the current policies before live-game use.
 
@@ -52,4 +54,4 @@ See [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) for the full architectu
 
 ## Current status
 
-Android MVP source and a GitHub Actions debug-APK workflow are committed. The current 0.3.0 APK passed the GitHub Actions build and the included Gem/input-safety unit tests. Physical validation on the Samsung Galaxy A35 5G / Android 16 is still pending.
+Android MVP source and a GitHub Actions debug-APK workflow are committed. The automated profile-navigation and list-scroll implementation is under device validation. GitHub Actions runs the JVM safety tests and builds the debug APK; physical validation on the Samsung Galaxy A35 5G / Android 16 is still pending.
