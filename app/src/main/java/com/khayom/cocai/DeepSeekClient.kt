@@ -5,7 +5,10 @@ import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.net.URL
 import java.text.NumberFormat
 import java.util.Locale
@@ -14,6 +17,17 @@ object DeepSeekClient {
     private const val ENDPOINT = "https://api.deepseek.com/chat/completions"
     private const val MODEL = "deepseek-flash"
     private val allowedTabs = setOf("HOME_VILLAGE", "BUILDER_BASE", "CLAN_CAPITAL")
+
+    @Volatile private var activeConnection: HttpURLConnection? = null
+
+    fun cancelCurrentRequest() {
+        val connection = synchronized(this) {
+            val current = activeConnection
+            activeConnection = null
+            current
+        }
+        try { connection?.disconnect() } catch (_: Exception) { }
+    }
 
     fun analyzeAchievements(bitmap: Bitmap, apiKey: String): String {
         require(apiKey.isNotBlank()) { "Дар Settings API Key ворид кун." }
@@ -94,6 +108,7 @@ object DeepSeekClient {
             .put("messages", JSONArray().put(message))
 
         val connection = URL(ENDPOINT).openConnection() as HttpURLConnection
+        synchronized(this) { activeConnection = connection }
         try {
             connection.requestMethod = "POST"
             connection.connectTimeout = 25_000
@@ -125,7 +140,22 @@ object DeepSeekClient {
                 .getJSONArray("choices").getJSONObject(0)
                 .getJSONObject("message").getString("content")
             return validateAndFormat(raw)
+        } catch (_: UnknownHostException) {
+            throw IllegalStateException(
+                "DNS сервер API-ро пайдо накард (api.deepseek.com). Интернет, Private DNS ё VPN-ро санҷ."
+            )
+        } catch (_: SocketTimeoutException) {
+            throw IllegalStateException(
+                "Пайвастшавӣ ба DeepSeek вақтро гузашт. Интернетро санҷ ва баъд START-ро такрор кун."
+            )
+        } catch (e: IOException) {
+            throw IllegalStateException(
+                "Хатои шабака ҳангоми пайвастшавӣ ба DeepSeek: ${e.message ?: "I/O error"}"
+            )
         } finally {
+            synchronized(this) {
+                if (activeConnection === connection) activeConnection = null
+            }
             connection.disconnect()
         }
     }
