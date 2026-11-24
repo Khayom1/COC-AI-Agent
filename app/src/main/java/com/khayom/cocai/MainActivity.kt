@@ -32,6 +32,7 @@ class MainActivity : Activity() {
     private lateinit var summaryText: TextView
     private lateinit var resultText: TextView
     private lateinit var keyEdit: EditText
+    private var sessionToggleButton: TextView? = null
     private var receiverRegistered = false
 
     private val resultReceiver = object : BroadcastReceiver() {
@@ -153,17 +154,17 @@ class MainActivity : Activity() {
 
         root.addView(sectionHeading("ИДОРАКУНӢ", "Маълумот нигоҳ дошта мешавад; STOP онро пок намекунад"))
         val sessionCard = card()
-        val sessionButtons = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-        sessionButtons.addView(actionButton("▶  START", GREEN, { startCaptureFlow() }),
-            LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(6) })
-        sessionButtons.addView(actionButton("■  STOP", RED, { stopCaptureOnly() }),
-            LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginStart = dp(6) })
-        sessionCard.addView(sessionButtons)
+        sessionToggleButton = actionButton(
+            "▶  START", GREEN, { toggleCaptureSession() },
+            textSize = 15f,
+            params = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(54)
+            )
+        )
+        sessionCard.addView(sessionToggleButton)
         sessionCard.addView(space(10))
         sessionCard.addView(label(
-            "START: сканро аз хотираи пешина идома медиҳад. STOP: танҳо сабтро таваққуф мекунад ва маълумотро нигоҳ медорад. Барои ҳар START Android иҷозати сабти экранро мепурсад.\n\nПас аз кушода шудани бозӣ, Profile → Achievements-ро кушо. AI саҳифаи намоёнро худаш мехонад; рӯйхатро дастӣ ба поён гардон ва баъди ҳар скролл тақрибан 4 сония интизор шав.",
+            "START: бозиро мекушояд, профилро меёбад ва рӯйхати Achievement-ро худкор скролл мекунад. STOP: танҳо сессияро таваққуф медиҳад; базаи ҷамъшуда пок намешавад.\n\nБарои тап ва скролл Accessibility як бор фаъол карда мешавад. Android барои сабти экран дар ҳар START иҷозат мепурсад. Ҷанг ва анҷом додани Achievement-ҳо ҳанӯз автоматӣ нестанд.",
             12f, MUTED, false
         ))
         root.addView(sessionCard, matchWrap())
@@ -272,6 +273,7 @@ class MainActivity : Activity() {
         val installed = isClashInstalled()
         val usage = hasUsageAccess()
         val overlay = Settings.canDrawOverlays(this)
+        val accessibility = GameAutomationAccessibilityService.isEnabled(this)
         val key = SecureKeyStore.hasKey(this)
         val sessionPrefs = getSharedPreferences(CaptureOverlayService.SESSION_PREFS, MODE_PRIVATE)
         val running = sessionPrefs.getBoolean(CaptureOverlayService.KEY_CAPTURE_ACTIVE, false)
@@ -281,6 +283,7 @@ class MainActivity : Activity() {
             appendLine()
             appendLine("Clash of Clans: ${if (installed) "насб шудааст" else "насб нест"}")
             appendLine("Screen / Overlay: ${if (usage && overlay) "иҷозат дода шудааст" else "иҷозат лозим аст"}")
+            appendLine("Auto tap / scroll: ${if (accessibility) "фаъол" else "Accessibility бояд фаъол шавад"}")
             append("DeepSeek: ${if (key) "API Key захира шудааст" else "API Key ворид нашудааст"}")
         }
         gameStateText.text = if (installed) "Насб шудааст • бастаи ягонаи иҷозатдодашуда"
@@ -290,6 +293,10 @@ class MainActivity : Activity() {
             resultText.text = getSharedPreferences("coc_ai_results", MODE_PRIVATE)
                 .getString("last_analysis", "Ҳоло натиҷаи скан мавҷуд нест.")
                 ?: "Ҳоло натиҷаи скан мавҷуд нест."
+        }
+        sessionToggleButton?.apply {
+            text = if (running) "■  STOP" else "▶  START"
+            background = rounded(if (running) RED else GREEN, 11)
         }
     }
 
@@ -315,8 +322,19 @@ class MainActivity : Activity() {
             ))
             return
         }
+        if (!GameAutomationAccessibilityService.isEnabled(this)) {
+            toast("Барои тап ва скролли автоматӣ COC AI Agent-ро дар Accessibility фаъол кун.")
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            return
+        }
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         startActivityForResult(manager.createScreenCaptureIntent(), REQUEST_CAPTURE)
+    }
+
+    private fun toggleCaptureSession() {
+        val running = getSharedPreferences(CaptureOverlayService.SESSION_PREFS, MODE_PRIVATE)
+            .getBoolean(CaptureOverlayService.KEY_CAPTURE_ACTIVE, false)
+        if (running) stopCaptureOnly() else startCaptureFlow()
     }
 
     private fun stopCaptureOnly() {
