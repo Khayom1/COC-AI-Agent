@@ -17,7 +17,7 @@ The scanner is not intended for Event Missions, Season Challenges, Clan Games, o
 - User-authorized MediaProjection screen capture, with a 30 FPS processing ceiling.
 - Floating START / STOP controls; START resumes the saved Achievement database.
 - Foreground-package guard using Android Usage Access.
-- Automatic DeepSeek Vision analysis when a stable captured screen changes, with a request interval limit.
+- Automatic DeepSeek Vision analysis when a stable captured screen changes, with a request interval limit.\n- A Settings diagnostic checks DNS, API-key validity and whether the account exposes image input for `deepseek-flash`.
 - User's API key is encrypted with AES-GCM and an Android Keystore key.
 - Achievement screenshots are cropped toward the central panel before being sent to DeepSeek.
 - Basic completion-time estimates after multiple progress observations separated in time.\n- No raw screenshot archive is retained by default.
@@ -52,4 +52,4 @@ See [docs/TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) for the full architectu
 
 ## Current status
 
-Android MVP source and a GitHub Actions debug-APK workflow are committed. The APK is not considered stable until the Actions build and unit tests succeed and the app is tested on the Samsung Galaxy A35 5G / Android 16.
+Android MVP source and a GitHub Actions debug-APK workflow are committed. The current 0.3.0 APK passed the GitHub Actions build and the included Gem/input-safety unit tests. Physical validation on the Samsung Galaxy A35 5G / Android 16 is still pending.
