@@ -222,9 +222,9 @@ The first Android source drop now implements:
 - Native Kotlin Android app with a fixed Clash of Clans package check.
 - MediaProjection consent flow and a screen-capture foreground service.
 - Frame processing throttled to a maximum of 30 frames/second.
-- Floating draggable START / SCAN / STOP controls.
+- Floating draggable START / STOP controls; START resumes the saved Achievement database.
 - Usage Access foreground-package check; analysis is paused unless the latest foreground activity belongs to the allowlisted Clash package.
-- DeepSeek Vision request on demand when the user presses SCAN (not one remote API request per video frame).
+- DeepSeek Vision automatically analyzes a stable changed frame, with a minimum interval between requests (not one remote API request per video frame).
 - Central achievement-panel crop before the image is sent to the provider.
 - AES-GCM encryption of the user's key using Android Keystore.
 - A central no-game-input / no-gem-spending policy guard.
@@ -233,7 +233,7 @@ The current MVP sends a cropped image to DeepSeek for semantic parsing and merge
 
 ### User-driven extra context
 
-If the AI needs a building or troop level to estimate whether an achievement is feasible, it may explain exactly what information is missing and ask the user to open that screen manually. This MVP does not tap game objects or navigate the game automatically. The user may manually return to an Achievement tab and press SCAN again. The achievement task parser itself rejects building-detail, army, shop, Events, Season Challenges, and Clan Games screens.
+If the AI needs a building or troop level to estimate whether an achievement is feasible, it may explain exactly what information is missing and ask the user to open that screen manually. This MVP does not tap game objects or navigate the game automatically. The user must navigate to the Achievement tab and scroll manually; automatic recognition and merging continue while the scan session is active. The achievement task parser itself rejects building-detail, army, shop, Events, Season Challenges, and Clan Games screens.
 
 ### Non-negotiable Gems lock
 
@@ -244,7 +244,7 @@ If the AI needs a building or troop level to estimate whether an achievement is 
 
 ### Frame-rate and provider-cost policy
 
-The capture pipeline accepts frames at up to 30 FPS and stores only the latest in-memory frame. It does not upload a video stream. A DeepSeek request occurs only after an explicit SCAN action, which prevents accidental dozens of paid Vision requests every second.
+The capture pipeline accepts frames at up to 30 FPS and stores only the latest in-memory frame. It does not upload a video stream. A DeepSeek request occurs only after a stable screen change and is rate-limited; the full 30 FPS stream is never uploaded.
 
 ### Build status
 
