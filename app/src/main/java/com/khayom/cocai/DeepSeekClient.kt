@@ -83,12 +83,12 @@ object DeepSeekClient {
         require(apiKey.isNotBlank()) { "Дар Settings API Key ворид кун." }
         check(!isCancelled()) { "Сессияи скан қатъ шуд." }
 
-        // Crop toward the central achievement panel to avoid forwarding most of the
-        // unrelated village HUD/player details to the vision provider.
+        // Keep the upper-left player badge visible for navigation-state detection
+        // while retaining the complete central Achievement panel.
         val landscape = bitmap.width >= bitmap.height
-        val left = (bitmap.width * if (landscape) 0.13f else 0.05f).toInt()
+        val left = (bitmap.width * if (landscape) 0.01f else 0.05f).toInt()
         val top = (bitmap.height * if (landscape) 0.015f else 0.15f).toInt()
-        val cropWidth = (bitmap.width * if (landscape) 0.74f else 0.90f)
+        val cropWidth = (bitmap.width * if (landscape) 0.90f else 0.90f)
             .toInt().coerceAtMost(bitmap.width - left).coerceAtLeast(1)
         val cropHeight = (bitmap.height * if (landscape) 0.97f else 0.70f)
             .toInt().coerceAtMost(bitmap.height - top).coerceAtLeast(1)
@@ -117,7 +117,7 @@ object DeepSeekClient {
             REJECT Events, Event Missions, Season Challenges, Clan Games, Clan War,
             shop, building-detail, army, settings, chat, and every other screen.
             For a non-achievement screenshot classify game_screen as:
-            - VILLAGE_HOME only when the main village base and player badge are visible
+            - VILLAGE_HOME only when the main village base and upper-left player level/profile badge are visible
             - PLAYER_PROFILE when the player profile panel is open but achievement rows are not visible
             - OTHER for every uncertain or unrelated screen
             Never request a tap, purchase, upgrade, troop deployment, or battle action.
