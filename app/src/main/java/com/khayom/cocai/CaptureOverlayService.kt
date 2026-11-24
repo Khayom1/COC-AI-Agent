@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -23,6 +24,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.PowerManager
 import android.os.IBinder
 import android.os.SystemClock
 import android.provider.Settings
@@ -47,6 +49,8 @@ class CaptureOverlayService : Service() {
     private val frameLock = Any()
     private var lastFrameAt = 0L
     private var lastForegroundCheckAt = 0L
+    private var lastForegroundEventTime = 0L
+    @Volatile private var lastKnownTopPackage: String? = null
     @Volatile private var lastForegroundAllowed = false
     private var stoppingProjection = false
     private val analyzing = AtomicBoolean(false)
@@ -190,6 +194,13 @@ class CaptureOverlayService : Service() {
         if (now - lastForegroundCheckAt < 300) return lastForegroundAllowed
         lastForegroundCheckAt = now
 
+        val power = getSystemService(POWER_SERVICE) as PowerManager
+        val keyguard = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+        if (!power.isInteractive || keyguard.isKeyguardLocked) {
+            lastForegroundAllowed = false
+            return false
+        }
+
         val appOps = getSystemService(APP_OPS_SERVICE) as AppOpsManager
         @Suppress("DEPRECATION")
         val usageAllowed = appOps.checkOpNoThrow(
@@ -208,8 +219,8 @@ class CaptureOverlayService : Service() {
             val end = System.currentTimeMillis()
             val events = usage.queryEvents(end - 10_000, end)
             val event = UsageEvents.Event()
-            var latestPackage: String? = null
-            var latestTime = 0L
+            var latestPackage = lastKnownTopPackage
+            var latestTime = lastForegroundEventTime
             while (events.hasNextEvent()) {
                 events.getNextEvent(event)
                 val foreground = event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
@@ -220,6 +231,8 @@ class CaptureOverlayService : Service() {
                     latestPackage = event.packageName
                 }
             }
+            lastForegroundEventTime = latestTime
+            lastKnownTopPackage = latestPackage
             lastForegroundAllowed = latestPackage == ALLOWED_PACKAGE
             lastForegroundAllowed
         } catch (_: Exception) {
