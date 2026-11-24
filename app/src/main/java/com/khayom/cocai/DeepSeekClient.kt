@@ -29,6 +29,60 @@ object DeepSeekClient {
         try { connection?.disconnect() } catch (_: Exception) { }
     }
 
+    fun testConnection(apiKey: String): String {
+        require(apiKey.isNotBlank()) { "Аввал API Key ворид кун." }
+        val connection = URL("https://api.deepseek.com/models").openConnection() as HttpURLConnection
+        synchronized(this) { activeConnection = connection }
+        try {
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 20_000
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
+            connection.setRequestProperty("Accept", "application/json")
+            val status = connection.responseCode
+            val body = (if (status in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+
+            if (status !in 200..299) {
+                throw IllegalStateException(when (status) {
+                    401, 403 -> "API Key нодуруст ё бе иҷозат аст (HTTP $status)."
+                    429 -> "Лимити дархостҳои DeepSeek расид (HTTP 429)."
+                    in 500..599 -> "Сервери DeepSeek муваққатан дастнорас аст (HTTP $status)."
+                    else -> "Санҷиши API ноком шуд (HTTP $status)."
+                })
+            }
+
+            val models = JSONObject(body).optJSONArray("data") ?: JSONArray()
+            var flashFound = false
+            var visionSupported = false
+            for (index in 0 until models.length()) {
+                val model = models.optJSONObject(index) ?: continue
+                if (model.optString("id") == MODEL) {
+                    flashFound = true
+                    val modalities = model.optJSONArray("input_modalities") ?: JSONArray()
+                    for (i in 0 until modalities.length()) {
+                        if (modalities.optString(i) == "image") visionSupported = true
+                    }
+                    break
+                }
+            }
+            if (!flashFound) return "Пайвастшавӣ дуруст аст, аммо модели $MODEL дар рӯйхат нест."
+            if (!visionSupported) return "Модели $MODEL ёфт шуд, аммо дастгирии тасвир тасдиқ нашуд."
+            return "Пайвастшавӣ муваффақ аст. API Key дуруст ва $MODEL Vision дастрас аст."
+        } catch (_: UnknownHostException) {
+            throw IllegalStateException("DNS сервер api.deepseek.com-ро пайдо накард. Интернет, Private DNS ё VPN-ро санҷ.")
+        } catch (_: SocketTimeoutException) {
+            throw IllegalStateException("Санҷиши пайвастшавӣ вақтро гузашт. Интернетро санҷ.")
+        } catch (e: IOException) {
+            throw IllegalStateException("Хатои шабака: ${e.message ?: "I/O error"}")
+        } finally {
+            synchronized(this) {
+                if (activeConnection === connection) activeConnection = null
+            }
+            connection.disconnect()
+        }
+    }
+
     fun analyzeAchievements(bitmap: Bitmap, apiKey: String): String {
         require(apiKey.isNotBlank()) { "Дар Settings API Key ворид кун." }
 
