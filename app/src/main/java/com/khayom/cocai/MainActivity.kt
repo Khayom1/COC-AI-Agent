@@ -294,6 +294,10 @@ class MainActivity : Activity() {
     }
 
     private fun startCaptureFlow() {
+        if (!SecureKeyStore.hasKey(this)) {
+            toast("Аввал DeepSeek API Key-ро дар барнома ворид ва захира кун.")
+            return
+        }
         if (!isClashInstalled()) {
             toast("Clash of Clans насб нест.")
             return
