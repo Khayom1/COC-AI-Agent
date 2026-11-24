@@ -29,7 +29,7 @@ import android.provider.Settings
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.MotionEvent
-import android.view.ServiceInfo
+import android.content.pm.ServiceInfo
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
