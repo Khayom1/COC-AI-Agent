@@ -79,8 +79,9 @@ object DeepSeekClient {
         }
     }
 
-    fun analyzeAchievements(bitmap: Bitmap, apiKey: String): String {
+    fun analyzeAchievements(bitmap: Bitmap, apiKey: String, isCancelled: () -> Boolean = { false }): String {
         require(apiKey.isNotBlank()) { "Дар Settings API Key ворид кун." }
+        check(!isCancelled()) { "Сессияи скан қатъ шуд." }
 
         // Crop toward the central achievement panel to avoid forwarding most of the
         // unrelated village HUD/player details to the vision provider.
@@ -99,6 +100,7 @@ object DeepSeekClient {
         } finally {
             if (cropped !== bitmap && !cropped.isRecycled) cropped.recycle()
         }
+        check(!isCancelled()) { "Сессияи скан қатъ шуд." }
         val dataUrl = "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
 
         val prompt = """
@@ -159,8 +161,11 @@ object DeepSeekClient {
             .put("messages", JSONArray().put(message))
 
         val connection = URL(ENDPOINT).openConnection() as HttpURLConnection
-        synchronized(this) { activeConnection = connection }
         try {
+            synchronized(this) {
+                check(!isCancelled()) { "Сессияи скан қатъ шуд." }
+                activeConnection = connection
+            }
             connection.requestMethod = "POST"
             connection.connectTimeout = 25_000
             connection.readTimeout = 60_000
@@ -168,10 +173,12 @@ object DeepSeekClient {
             connection.setRequestProperty("Authorization", "Bearer $apiKey")
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Accept", "application/json")
+            check(!isCancelled()) { "Сессияи скан қатъ шуд." }
             connection.outputStream.use {
                 it.write(request.toString().toByteArray(Charsets.UTF_8))
             }
 
+            check(!isCancelled()) { "Сессияи скан қатъ шуд." }
             val code = connection.responseCode
             val responseText = (if (code in 200..299) connection.inputStream
                 else connection.errorStream)?.bufferedReader(Charsets.UTF_8)?.use {
@@ -187,6 +194,7 @@ object DeepSeekClient {
                 })
             }
 
+            check(!isCancelled()) { "Сессияи скан қатъ шуд." }
             val raw = JSONObject(responseText)
                 .getJSONArray("choices").getJSONObject(0)
                 .getJSONObject("message").getString("content")
