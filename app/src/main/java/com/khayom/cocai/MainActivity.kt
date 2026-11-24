@@ -8,15 +8,19 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -24,6 +28,8 @@ import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var statusText: TextView
+    private lateinit var gameStateText: TextView
+    private lateinit var summaryText: TextView
     private lateinit var resultText: TextView
     private lateinit var keyEdit: EditText
     private var receiverRegistered = false
@@ -32,6 +38,7 @@ class MainActivity : Activity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             resultText.text = intent?.getStringExtra(CaptureOverlayService.EXTRA_RESULT)
                 ?: "Натиҷаи нав дастрас шуд."
+            refreshDashboard()
         }
     }
 
@@ -49,9 +56,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        refreshStatus()
-        resultText.text = getSharedPreferences("coc_ai_results", MODE_PRIVATE)
-            .getString("last_analysis", "Ҳоло натиҷаи скан мавҷуд нест.")
+        refreshDashboard()
         if (!receiverRegistered) {
             val filter = IntentFilter(CaptureOverlayService.ACTION_RESULT)
             if (Build.VERSION.SDK_INT >= 33) {
@@ -73,68 +78,137 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi() {
-        val scroll = ScrollView(this)
+        val scroll = ScrollView(this).apply {
+            clipToPadding = false
+            setPadding(0, 0, 0, dp(22))
+            setBackgroundColor(BG)
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(22), dp(20), dp(28))
-            setBackgroundColor(Color.rgb(12, 21, 34))
+            setPadding(dp(18), dp(24), dp(18), dp(18))
+            setBackgroundColor(BG)
         }
         scroll.addView(root)
         setContentView(scroll)
 
-        root.addView(text("COC AI AGENT", 27, Color.WHITE, true))
-        root.addView(text("Ёрдамчии таҳлили Achievement • Read-only", 14, Color.LTGRAY, false))
-        root.addView(gap(18))
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val mark = TextView(this).apply {
+            text = "⚔"
+            textSize = 27f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = rounded(GREEN_DARK, 16)
+            layoutParams = LinearLayout.LayoutParams(dp(54), dp(54))
+        }
+        val titleBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+        }
+        titleBox.addView(label("COC AI AGENT", 21f, TEXT, true))
+        titleBox.addView(label("Achievement intelligence", 12f, MUTED, false))
+        header.addView(mark)
+        header.addView(titleBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        header.addView(label("v0.2", 11f, MUTED, true))
+        root.addView(header)
+        root.addView(space(18))
 
-        statusText = text("", 14, Color.WHITE, false).apply {
-            setPadding(dp(12), dp(12), dp(12), dp(12))
-            setBackgroundColor(Color.rgb(29, 44, 61))
+        statusText = label("", 12f, TEXT, false).apply {
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            background = rounded(CARD_ALT, 14, STROKE)
         }
         root.addView(statusText, matchWrap())
-        root.addView(gap(12))
+        root.addView(space(18))
 
-        root.addView(text("1. БОЗӢ", 16, Color.rgb(121, 190, 255), true))
-        root.addView(text(
-            "Тугмаи + танҳо Clash of Clans-и расмиро меёбад. Барномаҳои дигар илова намешаванд.",
-            13, Color.LTGRAY, false
-        ))
-        root.addView(button("+  ИЛОВАИ CLASH OF CLANS") { addClashOfClans() }, matchWrap())
-        root.addView(button("КУШОДАНИ CLASH OF CLANS") { openClashOfClans() }, matchWrap())
-        root.addView(gap(12))
-
-        root.addView(text("2. МОНИТОРИНГ", 16, Color.rgb(121, 190, 255), true))
-        root.addView(text(
-            "Сканери экран то 30 кадр/сония кор мекунад. DeepSeek танҳо ҳангоми пахши SCAN даъват мешавад, на барои ҳар кадр.",
-            13, Color.LTGRAY, false
-        ))
-        root.addView(button("START — ОҒОЗИ СКАНЕР") { startCaptureFlow() }, matchWrap())
-        root.addView(text(
-            "Вақте ки бозӣ кушода аст, барои таҳлил SCAN-и тугмаи шинокунандаро пахш кун.",
-            13, Color.LTGRAY, false
-        ))
-        root.addView(button("STOP — ҚАТЪИ ПУРРА") {
-            stopService(Intent(this, CaptureOverlayService::class.java))
-            toast("Сканер ва тугмаи шинокунанда қатъ шуданд.")
-        }, matchWrap())
-        root.addView(gap(12))
-
-        root.addView(text("3. DEEPSEEK API KEY", 16, Color.rgb(121, 190, 255), true))
-        root.addView(text(
-            "Калиди шахсиро танҳо дар ҳамин ҷо ворид кун. Он бо AES-GCM ва Android Keystore нигоҳ дошта мешавад ва ба GitHub фиристода намешавад.",
-            13, Color.LTGRAY, false
-        ))
-        keyEdit = EditText(this).apply {
-            hint = "sk-..."
-            setSingleLine(true)
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.GRAY)
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                    android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setBackgroundColor(Color.rgb(29, 44, 61))
+        root.addView(sectionHeading("БОЗӢ", "Танҳо Clash of Clans-и расмӣ"))
+        val gameCard = card()
+        val gameRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        root.addView(keyEdit, matchWrap())
-        root.addView(button("ЗАХИРА КАРДАНИ API KEY") {
+        val gameIcon = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            try {
+                setImageDrawable(packageManager.getApplicationIcon(CaptureOverlayService.ALLOWED_PACKAGE))
+            } catch (_: Exception) {
+                setImageResource(android.R.drawable.sym_def_app_icon)
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(58), dp(58))
+        }
+        val gameInfo = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, 0, 0)
+        }
+        gameInfo.addView(label("Clash of Clans", 16f, TEXT, true))
+        gameStateText = label("", 12f, MUTED, false)
+        gameInfo.addView(gameStateText)
+        gameRow.addView(gameIcon)
+        gameRow.addView(gameInfo, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        gameCard.addView(gameRow, matchWrap())
+        gameCard.addView(actionButton("КУШОДАНИ БОЗӢ", BLUE) { openClashOfClans() })
+        root.addView(gameCard, matchWrap())
+        root.addView(space(16))
+
+        root.addView(sectionHeading("ИДОРАКУНӢ", "Маълумот нигоҳ дошта мешавад; STOP онро пок намекунад"))
+        val sessionCard = card()
+        val sessionButtons = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        sessionButtons.addView(actionButton("▶  START", GREEN) { startCaptureFlow() },
+            LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(6) })
+        sessionButtons.addView(actionButton("■  STOP", RED) { stopCaptureOnly() },
+            LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginStart = dp(6) })
+        sessionCard.addView(sessionButtons)
+        sessionCard.addView(space(10))
+        sessionCard.addView(label(
+            "START: сканро аз маълумоти пешина идома медиҳад. STOP: танҳо сабтро таваққуф мекунад. Барои ҳар START Android иҷозати нави сабти экран талаб мекунад.",
+            12f, MUTED, false
+        ))
+        root.addView(sessionCard, matchWrap())
+        root.addView(space(16))
+
+        root.addView(sectionHeading("ХОТИРАИ ACHIEVEMENT", "Пешрафт байни STOP ва START боқӣ мемонад"))
+        val memoryCard = card()
+        summaryText = label("", 13f, TEXT, false).apply { setLineSpacing(dp(3).toFloat(), 1f) }
+        memoryCard.addView(summaryText)
+        memoryCard.addView(space(10))
+        memoryCard.addView(actionButton("ПОК КАРДАНИ ТАЪРИХ", CARD_BUTTON, {
+            AchievementStore.clear(this)
+            resultText.text = "Таърихи Achievement пок карда шуд."
+            refreshDashboard()
+            toast("Таърихи Achievement пок карда шуд.")
+        }, textColor = MUTED))
+        root.addView(memoryCard, matchWrap())
+        root.addView(space(16))
+
+        root.addView(sectionHeading("НАТИҶАИ ОХИРИН", "Таҳлил ва хулосаи DeepSeek"))
+        val resultsCard = card()
+        resultText = label("Ҳоло натиҷаи скан мавҷуд нест.", 13f, TEXT, false).apply {
+            setLineSpacing(dp(3).toFloat(), 1f)
+        }
+        resultsCard.addView(resultText)
+        root.addView(resultsCard, matchWrap())
+        root.addView(space(16))
+
+        root.addView(sectionHeading("DEEPSEEK API", "Калиди шахсии худро дар ҳамин дастгоҳ нигоҳ дор"))
+        val apiCard = card()
+        keyEdit = EditText(this).apply {
+            hint = "DeepSeek API key"
+            setSingleLine(true)
+            textSize = 14f
+            setTextColor(TEXT)
+            setHintTextColor(MUTED)
+            setPadding(dp(12), dp(11), dp(12), dp(11))
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            background = rounded(CARD_ALT, 10, STROKE)
+        }
+        apiCard.addView(keyEdit, matchWrap())
+        apiCard.addView(space(8))
+        val apiButtons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        apiButtons.addView(actionButton("ЗАХИРА КАРДАН", BLUE, {
             val value = keyEdit.text?.toString().orEmpty().trim()
             if (value.isBlank()) {
                 toast("API Key холӣ аст.")
@@ -144,54 +218,97 @@ class MainActivity : Activity() {
                     keyEdit.setText("")
                     (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
                         .hideSoftInputFromWindow(keyEdit.windowToken, 0)
-                    toast("API Key рамзгузорӣ шуда нигоҳ дошта шуд.")
-                    refreshStatus()
+                    toast("API Key рамзгузорӣ шуд.")
+                    refreshDashboard()
                 } catch (e: Exception) {
                     toast("Хатои нигоҳдории калид: ${e.message}")
                 }
             }
-        }, matchWrap())
-        root.addView(button("ҲАЗФИ API KEY") {
+        }, textSize = 11f), LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(5) })
+        apiButtons.addView(actionButton("ҲАЗФИ KEY", CARD_BUTTON, {
             SecureKeyStore.delete(this)
             keyEdit.setText("")
-            toast("API Key аз дастгоҳ ҳазф шуд.")
-            refreshStatus()
-        }, matchWrap())
-        root.addView(gap(14))
+            refreshDashboard()
+            toast("API Key ҳазф шуд.")
+        }, textColor = MUTED, textSize = 11f,
+            params = LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(5) }))
+        apiCard.addView(apiButtons)
+        root.addView(apiCard, matchWrap())
+        root.addView(space(16))
 
-        root.addView(text("4. НАТИҶАИ ТАҲЛИЛ", 16, Color.rgb(121, 190, 255), true))
-        resultText = text("Ҳоло натиҷаи скан мавҷуд нест.", 14, Color.WHITE, false).apply {
-            setPadding(dp(12), dp(12), dp(12), dp(12))
-            setBackgroundColor(Color.rgb(29, 44, 61))
+        val safety = label(
+            "🔒  GEMS LOCK: ON    •    READ-ONLY    •    30 FPS\nКристаллҳо танҳо ҳамчун мукофот хонда мешаванд. Харҷ, Upgrade ва пахши тугмаҳои бозӣ вуҷуд надорад.",
+            12f, GREEN_TEXT, true
+        ).apply {
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            background = rounded(GREEN_DARK, 13)
         }
-        root.addView(resultText, matchWrap())
-        root.addView(button("ҲАЗФИ ТАЪРИХИ ACHIEVEMENT") {
-            AchievementStore.clear(this)
-            resultText.text = "Таърихи ҳамаи сканҳо ҳазф шуд."
-            toast("Таърихи Achievement пок карда шуд.")
-        }, matchWrap())
-        root.addView(gap(14))
-
-        root.addView(text(
-            "ҚУЛФИ КРИСТАЛЛ: ФАЪОЛ. Барнома ба бозӣ ягон пахш ё амали харид/Upgrade намефиристад. Он танҳо экранро мехонад.",
-            14, Color.rgb(132, 235, 170), true
-        ))
-        root.addView(gap(10))
-        root.addView(text(
-            "Барои гирифтани маълумоти сатҳи бино ё сарбоз, худат онро дар бозӣ кушо. AI худкор ба объект намезанад ва тугмаҳои бозиро пахш намекунад.",
-            12, Color.LTGRAY, false
-        ))
+        root.addView(safety, matchWrap())
     }
 
-    private fun addClashOfClans() {
-        toast(if (isClashInstalled()) "Clash of Clans илова шуд."
-        else "Clash of Clans-и расмӣ дар телефон насб нест.")
-        refreshStatus()
+    private fun refreshDashboard() {
+        if (!::statusText.isInitialized) return
+        val installed = isClashInstalled()
+        val usage = hasUsageAccess()
+        val overlay = Settings.canDrawOverlays(this)
+        val key = SecureKeyStore.hasKey(this)
+        val sessionPrefs = getSharedPreferences(CaptureOverlayService.SESSION_PREFS, MODE_PRIVATE)
+        val running = sessionPrefs.getBoolean(CaptureOverlayService.KEY_CAPTURE_ACTIVE, false)
+
+        statusText.text = buildString {
+            append(if (running) "●  СКАНИ ФАЪОЛ" else "●  СКАНИ ТАВАҚҚУФЁФТА")
+            appendLine()
+            appendLine("Clash of Clans: ${if (installed) "насб шудааст" else "насб нест"}")
+            appendLine("Screen / Overlay: ${if (usage && overlay) "иҷозат дода шудааст" else "иҷозат лозим аст"}")
+            append("DeepSeek: ${if (key) "API Key захира шудааст" else "API Key ворид нашудааст"}")
+        }
+        gameStateText.text = if (installed) "Насб шудааст • бастаи ягонаи иҷозатдодашуда"
+            else "Дар телефон ёфт нашуд"
+        if (::summaryText.isInitialized) summaryText.text = AchievementStore.dashboardSummary(this)
+        if (::resultText.isInitialized) {
+            resultText.text = getSharedPreferences("coc_ai_results", MODE_PRIVATE)
+                .getString("last_analysis", "Ҳоло натиҷаи скан мавҷуд нест.")
+                ?: "Ҳоло натиҷаи скан мавҷуд нест."
+        }
+    }
+
+    private fun startCaptureFlow() {
+        if (!isClashInstalled()) {
+            toast("Clash of Clans насб нест.")
+            return
+        }
+        if (!hasUsageAccess()) {
+            toast("Барои маҳдуд кардани скан ба Clash of Clans, Usage Access-ро фаъол кун.")
+            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            return
+        }
+        if (!Settings.canDrawOverlays(this)) {
+            toast("Барои тугмаи шинокунанда Display over other apps-ро иҷозат деҳ.")
+            startActivity(Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            ))
+            return
+        }
+        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        startActivityForResult(manager.createScreenCaptureIntent(), REQUEST_CAPTURE)
+    }
+
+    private fun stopCaptureOnly() {
+        val prefs = getSharedPreferences(CaptureOverlayService.SESSION_PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(CaptureOverlayService.KEY_CAPTURE_ACTIVE, false)) {
+            toast("Скан аллакай таваққуф ёфтааст. Маълумоти қаблӣ нигоҳ дошта шудааст.")
+            return
+        }
+        startService(Intent(this, CaptureOverlayService::class.java)
+            .setAction(CaptureOverlayService.ACTION_STOP_CAPTURE))
+        toast("Скан таваққуф ёфт. Achievement-ҳо дар хотира монданд.")
+        refreshDashboard()
     }
 
     private fun openClashOfClans() {
         if (!isClashInstalled()) {
-            toast("Аввал Clash of Clans-ро насб кун.")
+            toast("Clash of Clans-и расмӣ дар телефон насб нест.")
             return
         }
         val launch = packageManager.getLaunchIntentForPackage(CaptureOverlayService.ALLOWED_PACKAGE)
@@ -213,28 +330,6 @@ class MainActivity : Activity() {
         false
     }
 
-    private fun startCaptureFlow() {
-        if (!isClashInstalled()) {
-            toast("Clash of Clans насб нест.")
-            return
-        }
-        if (!hasUsageAccess()) {
-            toast("Usage Access-ро фаъол кун, то барнома танҳо ҳангоми кушода будани Clash скан кунад.")
-            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-            return
-        }
-        if (!Settings.canDrawOverlays(this)) {
-            toast("Барои тугмаи шинокунанда иҷозати Display over other apps лозим аст.")
-            startActivity(Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            ))
-            return
-        }
-        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        startActivityForResult(manager.createScreenCaptureIntent(), REQUEST_CAPTURE)
-    }
-
     private fun hasUsageAccess(): Boolean {
         val appOps = getSystemService(APP_OPS_SERVICE) as AppOpsManager
         @Suppress("DEPRECATION")
@@ -250,7 +345,7 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQUEST_CAPTURE) return
         if (resultCode != RESULT_OK || data == null) {
-            toast("Иҷозати сабти экран дода нашуд.")
+            toast("Иҷозати сабти экран дода нашуд. Маълумоти қаблӣ бетағйир монд.")
             return
         }
         val service = Intent(this, CaptureOverlayService::class.java).apply {
@@ -259,6 +354,10 @@ class MainActivity : Activity() {
             putExtra(CaptureOverlayService.EXTRA_PROJECTION_DATA, data)
         }
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(service) else startService(service)
+
+        // Open the allowlisted game after the user grants screen-capture consent.
+        val gameIntent = packageManager.getLaunchIntentForPackage(CaptureOverlayService.ALLOWED_PACKAGE)
+        if (gameIntent != null) startActivity(gameIntent)
         finish()
     }
 
@@ -266,42 +365,57 @@ class MainActivity : Activity() {
         if (intent?.action == ACTION_START_FROM_OVERLAY) startCaptureFlow()
     }
 
-    private fun refreshStatus() {
-        val installed = isClashInstalled()
-        val usage = hasUsageAccess()
-        val overlay = Settings.canDrawOverlays(this)
-        val key = SecureKeyStore.hasKey(this)
-        statusText.text = buildString {
-            appendLine("Clash of Clans: ${if (installed) "илова шудааст ✓" else "ёфт нашуд"}")
-            appendLine("Usage Access: ${if (usage) "фаъол ✓" else "лозим аст"}")
-            appendLine("Floating overlay: ${if (overlay) "фаъол ✓" else "лозим аст"}")
-            append("DeepSeek API Key: ${if (key) "захира шудааст ✓" else "ворид нашудааст"}")
-        }
+    private fun card(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(15), dp(15), dp(15), dp(15))
+        background = rounded(CARD, 16, STROKE)
     }
 
-    private fun toast(message: String) =
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    private fun sectionHeading(title: String, subtitle: String): View {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        box.addView(label(title, 12f, BLUE_TEXT, true))
+        box.addView(label(subtitle, 11f, MUTED, false))
+        return box.also { it.layoutParams = matchWrap() }
+    }
 
-    private fun text(value: String, size: Int, color: Int, bold: Boolean): TextView =
+    private fun label(value: String, size: Float, color: Int, bold: Boolean): TextView =
         TextView(this).apply {
             text = value
-            textSize = size.toFloat()
+            textSize = size
             setTextColor(color)
-            if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setPadding(0, dp(5), 0, dp(5))
+            if (bold) setTypeface(typeface, Typeface.BOLD)
         }
 
-    private fun button(label: String, action: () -> Unit): Button =
-        Button(this).apply {
-            text = label
-            isAllCaps = false
-            textSize = 14f
-            setOnClickListener { action() }
-        }
-
-    private fun gap(heightDp: Int) = android.view.View(this).apply {
-        layoutParams = LinearLayout.LayoutParams(1, dp(heightDp))
+    private fun actionButton(
+        textValue: String,
+        color: Int,
+        action: () -> Unit,
+        textColor: Int = Color.WHITE,
+        textSize: Float = 13f,
+        params: LinearLayout.LayoutParams? = null
+    ): TextView = TextView(this).apply {
+        text = textValue
+        this.textSize = textSize
+        setTextColor(textColor)
+        gravity = Gravity.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+        setPadding(dp(10), dp(11), dp(10), dp(11))
+        background = rounded(color, 11)
+        isClickable = true
+        isFocusable = true
+        setOnClickListener { action() }
+        layoutParams = params ?: matchWrap()
     }
+
+    private fun rounded(color: Int, radius: Int, stroke: Int? = null): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radius).toFloat()
+            if (stroke != null) setStroke(dp(1), stroke)
+        }
+
+    private fun space(heightDp: Int): View =
+        View(this).apply { layoutParams = LinearLayout.LayoutParams(1, dp(heightDp)) }
 
     private fun matchWrap() = LinearLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -310,8 +424,25 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    private fun toast(message: String) =
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+
     companion object {
         const val REQUEST_CAPTURE = 4001
         const val ACTION_START_FROM_OVERLAY = "com.khayom.cocai.START_FROM_OVERLAY"
+
+        private val BG = Color.rgb(10, 17, 29)
+        private val CARD = Color.rgb(20, 31, 48)
+        private val CARD_ALT = Color.rgb(28, 42, 61)
+        private val CARD_BUTTON = Color.rgb(42, 57, 75)
+        private val STROKE = Color.rgb(47, 67, 91)
+        private val TEXT = Color.rgb(242, 246, 252)
+        private val MUTED = Color.rgb(165, 180, 198)
+        private val BLUE = Color.rgb(39, 106, 181)
+        private val BLUE_TEXT = Color.rgb(127, 183, 245)
+        private val GREEN = Color.rgb(24, 139, 76)
+        private val GREEN_DARK = Color.rgb(19, 67, 47)
+        private val GREEN_TEXT = Color.rgb(156, 238, 190)
+        private val RED = Color.rgb(170, 55, 55)
     }
 }
