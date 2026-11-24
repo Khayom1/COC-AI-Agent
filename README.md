@@ -20,7 +20,7 @@ The scanner is not intended for Event Missions, Season Challenges, Clan Games, o
 - Optional DeepSeek Vision analysis using `deepseek-flash`.
 - User's API key is encrypted with AES-GCM and an Android Keystore key.
 - Achievement screenshots are cropped toward the central panel before being sent to DeepSeek.
-- No raw screenshot archive is retained by default.
+- Basic completion-time estimates after multiple progress observations separated in time.\n- No raw screenshot archive is retained by default.
 - Gems are treated as potential rewards only. The app has no game-input automation and cannot tap purchase, upgrade, boost, or spend controls.
 
 ## Important limits
