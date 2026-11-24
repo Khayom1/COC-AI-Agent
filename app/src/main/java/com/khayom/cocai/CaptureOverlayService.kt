@@ -124,6 +124,7 @@ class CaptureOverlayService : Service() {
     }
 
     private fun startProjection(resultCode: Int, data: Intent) {
+        sessionGeneration.incrementAndGet()
         stopProjectionResources()
         try {
             val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -184,7 +185,6 @@ class CaptureOverlayService : Service() {
                 null,
                 workerHandler
             )
-            sessionGeneration.incrementAndGet()
             isCapturing = virtualDisplay != null
             getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
                 .edit()
@@ -350,6 +350,7 @@ class CaptureOverlayService : Service() {
             return
         }
 
+        val generation = sessionGeneration.get()
         val copy = synchronized(frameLock) {
             latestFrame?.takeIf { !it.isRecycled }?.copy(Bitmap.Config.ARGB_8888, false)
         }
