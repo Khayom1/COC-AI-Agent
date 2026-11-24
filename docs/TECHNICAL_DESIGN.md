@@ -2,9 +2,9 @@
 
 ## Product definition
 
-COC AI Agent is a read-only Android assistant for reviewing and prioritizing the built-in Clash of Clans **Profile → Achievements** list.
+COC AI Agent is an Android assistant for reading and prioritizing the built-in Clash of Clans **Profile → Achievements** list. It uses DeepSeek Vision and an opt-in Accessibility service for limited navigation: open the player profile, select the three Achievement tabs, and scroll the confirmed list.
 
-It is not a game bot. It does not automate battles, deploy troops, tap game controls, accept in-game actions, modify memory, inject code, or interact with the game server.
+It is not a full gameplay bot. It does not automate battles, select opponents, train or deploy troops, cast spells, modify memory, inject code, or interact with the game server.
 
 ## In scope
 
@@ -14,7 +14,7 @@ The scanner recognizes and reads every achievement in these three profile tabs:
 2. Builder Base (Russian UI: «Деревня строителя»)
 3. Clan Capital (Russian UI: «Столица клана»)
 
-It must support long lists by scanning as the user scrolls, and it must merge overlapping pages without creating duplicate tasks.
+It automatically scrolls long lists, detects when the visible page stops moving, cycles through all three tabs, and merges overlapping pages without creating duplicate tasks.
 
 ## Explicitly out of scope
 
@@ -22,7 +22,7 @@ It must support long lists by scanning as the user scrolls, and it must merge ov
 - Season Challenges / Season Pass tasks
 - Clan Games
 - Clan War / CWL task automation
-- Battle automation, troop deployment, spell use, or automated game taps
+- Battle automation, troop deployment, spell use, opponent selection, or strategic gameplay actions. Only profile-entry/tab-selection taps and confirmed-list scroll gestures are included.
 - Reading or controlling any app other than the allowlisted Clash of Clans package
 
 Achievements are cumulative progress objectives, not ordinary quests with an accept/reject button. The app therefore recommends which achievement to work toward; it does not claim to accept or reject an achievement inside the game.
@@ -32,24 +32,22 @@ Achievements are cumulative progress objectives, not ordinary quests with an acc
 - Primary test device: Samsung Galaxy A35 5G
 - Android version: Android 16 (API 36)
 - Kotlin native Android app
-- Jetpack Compose for the app UI
-- Gradle build in GitHub Actions to produce a signed/release-ready APK
+- Native Android Views for the app UI
+- Gradle build and JVM safety tests in GitHub Actions to produce a debug APK; release signing is not configured
 
 ## Main user flow
 
-1. User opens COC AI Agent.
-2. User taps **+ Add Game**.
-3. The app checks only the known Clash of Clans package: `com.supercell.clashofclans`.
-4. If that package is installed, the app shows one fixed game card. It does not show a general installed-app picker and does not request `QUERY_ALL_PACKAGES`.
-5. User launches Clash of Clans from that card.
-6. User opens Profile → Achievements manually.
-7. User grants screen-capture permission when starting a new monitoring session.
-8. User taps the floating **START** control. The scanner reads the currently visible achievement page.
-9. User can switch between the three achievement tabs and scroll. The scanner detects page changes and collects every visible achievement.
-10. The app ranks achievements and shows the reason for each recommendation.
-11. User taps **STOP** to stop capture, processing, and API calls. The floating control can remain visible in its idle state until dismissed.
+1. User opens COC AI Agent and saves a DeepSeek API key.
+2. User grants Usage Access, Display over other apps, and enables the app's Accessibility service once in Android Settings.
+3. User taps the single **START** toggle.
+4. Android asks for fresh MediaProjection consent for this capture session.
+5. The app starts Clash of Clans and begins screen classification.
+6. When DeepSeek confirms the main village, Accessibility taps the player-profile badge.
+7. When DeepSeek confirms Profile → Achievements, it reads the visible rows and automatically scrolls.
+8. After two scroll attempts with no detected screen movement, it selects the next Achievement tab. It scans all three tabs and stops after returning to the tab where the session began.
+9. User taps **STOP** at any time. Capture and AI requests are cancelled, the toggle changes back to **START**, and the Achievement database is preserved.
 
-The MVP is intentionally read-only: the user navigates the game UI; the assistant only observes and analyzes the allowed achievement page.
+The Accessibility service is limited to navigation gestures. The user must enable it once; Android still requires a new screen-capture consent for every MediaProjection session. The app does not play battles or earn combat achievements by itself.
 
 ## Game allowlist and foreground guard
 
@@ -58,7 +56,7 @@ The MVP is intentionally read-only: the user navigates the game UI; the assistan
 - Do not request `QUERY_ALL_PACKAGES`.
 - Before processing a frame or sending it to the AI provider, verify that the allowed game is the foreground app.
 - If the user switches to another app, pause analysis and do not send that screen to the provider.
-- The exact foreground-detection mechanism must be validated on the A35: prefer the least-privileged reliable option. Usage Access may be used for package-state detection; an Accessibility service should be considered only if required and must be filtered to the Clash package. Do not use Accessibility to perform game taps.
+- The exact foreground-detection mechanism must be validated on the A35. Usage Access is used for package-state detection. The separate Accessibility service is filtered to the Clash package and only dispatches the fixed navigation gestures described above.
 - If the app cannot confidently verify that Clash is foreground, it must pause rather than guess.
 
 ## Screen capture and floating control
@@ -72,19 +70,19 @@ Important Android constraints:
 - Keep a visible foreground-service notification with a Stop action.
 - Request `SYSTEM_ALERT_WINDOW` only for the floating control; explain the permission and provide a settings link.
 - Start monitoring from a visible user action. Do not auto-start capture on boot.
-- The overlay must be draggable, small, translucent, and positioned away from achievement progress bars. Include Start, Stop, and Hide controls.
+- The overlay must be draggable, small, translucent, and positioned away from Achievement progress bars. It exposes one state-aware START / STOP toggle.
 - If overlay permission is revoked or Android stops the service, show a clear status and fallback notification/app control.
 
 ## Screen recognition pipeline
 
 1. Verify the foreground package.
-2. Detect the Achievement screen using known anchors: the profile header and the three tab labels.
+2. Classify the current frame as Village Home, Player Profile, confirmed Achievement page, or Other using DeepSeek Vision.
 3. Detect which of the three achievement tabs is selected.
-4. Crop only the achievement-list region. Exclude unrelated village UI, player name, chat, and resource counters where possible.
+4. Crop the screen while retaining the upper-left player badge and the central Achievement panel.
 5. Wait for a stable frame after tab changes or scrolling.
-6. Use local OCR / image parsing first. The first UI language to support is Russian; English can follow.
-7. Use DeepSeek Vision only when local extraction is uncertain or the task description needs semantic interpretation.
-8. Validate the structured result before saving it.
+6. Use DeepSeek Vision to parse the visible Russian Achievement rows and their numeric progress.
+7. Validate screen type, selected tab, title, progress ranges, and confidence before saving.
+8. Store normalized tasks in the local deduplicated database.
 
 Do not analyze Event, Season, Clan Games, or other screens. If the Achievement page is not positively identified, ignore the frame.
 
@@ -262,3 +260,13 @@ The GitHub Actions workflow is configured to run `assembleDebug` and upload an A
 - Database writes use synchronous commit before the result is reported as saved.
 - Ranking now considers progress completion ratio, visible Gem reward, XP reward, confidence, and historical completion rate where enough progress observations exist.
 - A unit-test suite verifies that gameplay actions and Gem spending remain disabled. It does not test the Accessibility gestures; those require physical-device validation.
+
+## Accessibility gesture service
+
+- Requires one-time manual activation in Android Accessibility settings.
+- Does not retrieve the view hierarchy or read other apps' text; it uses the Android dispatchGesture capability.
+- Main-village profile tap is calibrated at approximately 6.6% of screen width and 6.8% of screen height.
+- Achievement tab selectors are calibrated at x=29.2%, 50.1%, and 70.3%, y=14.6%.
+- Achievement scrolling is a vertical swipe at x=50%, from y=74% to y=32%.
+- The fixed gesture coordinates are based on the supplied 1536×864 landscape screenshot. They require physical validation on the target phone and may need recalibration if the game's UI layout or screen aspect ratio differs.
+- Scroll completion is inferred from two consecutive swipe attempts that do not materially change a 56×34 central luminance signature. If Android or the game rejects a gesture, the controller may misinterpret it as the end of the list; verify all three tabs on-device.
