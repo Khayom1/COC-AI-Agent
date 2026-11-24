@@ -274,7 +274,8 @@ class MainActivity : Activity() {
         val installed = isClashInstalled()
         val usage = hasUsageAccess()
         val overlay = Settings.canDrawOverlays(this)
-        val accessibility = GameAutomationAccessibilityService.isEnabled(this)
+        val accessibility = GameAutomationAccessibilityService.isEnabled(this) &&
+            GameAutomationAccessibilityService.isConnected()
         val key = SecureKeyStore.hasKey(this)
         val sessionPrefs = getSharedPreferences(CaptureOverlayService.SESSION_PREFS, MODE_PRIVATE)
         val running = sessionPrefs.getBoolean(CaptureOverlayService.KEY_CAPTURE_ACTIVE, false)
@@ -326,6 +327,10 @@ class MainActivity : Activity() {
         if (!GameAutomationAccessibilityService.isEnabled(this)) {
             toast("Барои тап ва скролли автоматӣ COC AI Agent-ро дар Accessibility фаъол кун.")
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            return
+        }
+        if (!GameAutomationAccessibilityService.isConnected()) {
+            toast("Accessibility фаъол аст, аммо сервис ҳоло пайваст нашудааст. Барномаро боз кун ва Start-ро такрор кун.")
             return
         }
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
