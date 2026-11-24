@@ -147,7 +147,7 @@ class MainActivity : Activity() {
         gameRow.addView(gameIcon)
         gameRow.addView(gameInfo, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         gameCard.addView(gameRow, matchWrap())
-        gameCard.addView(actionButton("КУШОДАНИ БОЗӢ", BLUE) { openClashOfClans() })
+        gameCard.addView(actionButton("КУШОДАНИ БОЗӢ", BLUE, { openClashOfClans() }))
         root.addView(gameCard, matchWrap())
         root.addView(space(16))
 
@@ -156,9 +156,9 @@ class MainActivity : Activity() {
         val sessionButtons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
         }
-        sessionButtons.addView(actionButton("▶  START", GREEN) { startCaptureFlow() },
+        sessionButtons.addView(actionButton("▶  START", GREEN, { startCaptureFlow() }),
             LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(6) })
-        sessionButtons.addView(actionButton("■  STOP", RED) { stopCaptureOnly() },
+        sessionButtons.addView(actionButton("■  STOP", RED, { stopCaptureOnly() }),
             LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginStart = dp(6) })
         sessionCard.addView(sessionButtons)
         sessionCard.addView(space(10))
