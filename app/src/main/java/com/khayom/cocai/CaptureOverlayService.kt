@@ -67,6 +67,7 @@ class CaptureOverlayService : Service() {
     @Volatile private var autoScrollCount = 0
     @Volatile private var noChangeScrollCount = 0
     @Volatile private var currentAchievementTab = 0
+    @Volatile private var startingAchievementTab = -1
 
     private val autoScanRunnable = object : Runnable {
         override fun run() {
@@ -210,6 +211,7 @@ class CaptureOverlayService : Service() {
             autoScrollCount = 0
             noChangeScrollCount = 0
             currentAchievementTab = 0
+            startingAchievementTab = -1
             workerHandler?.removeCallbacks(autoScanRunnable)
             workerHandler?.postDelayed(autoScanRunnable, AUTO_SCAN_POLL_MS)
             updateOverlayControls()
@@ -412,6 +414,9 @@ class CaptureOverlayService : Service() {
                             "CLAN_CAPITAL" -> 2
                             else -> currentAchievementTab
                         }
+                        if (startingAchievementTab < 0) {
+                            startingAchievementTab = currentAchievementTab
+                        }
                         val result = AchievementStore.mergeAndFormat(this, scanJson)
                         publishResult(result)
                         nextRetryAt = 0L
@@ -512,8 +517,8 @@ class CaptureOverlayService : Service() {
 
     private fun advanceToNextAchievementTab(generation: Long) {
         if (!isCapturing || sessionGeneration.get() != generation) return
-        val nextTab = currentAchievementTab + 1
-        if (nextTab > 2) {
+        val nextTab = (currentAchievementTab + 1) % 3
+        if (startingAchievementTab >= 0 && nextTab == startingAchievementTab) {
             updateStatus("Ҳар се таби Achievement скан шуд. Маълумот дар хотира нигоҳ дошта шуд.")
             updateNotification("Сканкунии ҳар се таби Achievement анҷом ёфт.")
             return
