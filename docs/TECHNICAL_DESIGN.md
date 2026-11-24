@@ -229,7 +229,7 @@ The first Android source drop now implements:
 - AES-GCM encryption of the user's key using Android Keystore.
 - A central no-game-input / no-gem-spending policy guard.
 
-The current MVP sends a cropped image to DeepSeek for semantic parsing and merges validated rows into a local, deduplicated Achievement database across manual scroll-and-scan passes. Local OCR, automatic list navigation, and a complete combat-power feasibility model remain planned work. A basic completion-time estimate is now derived from at least two observed progress increases separated by time; it is a rough historical-rate estimate, not a guaranteed prediction.
+The current MVP samples frames up to 30 FPS, uses a perceptual hash to ignore small animated pixel changes, waits for a stable materially changed frame, and automatically sends a cropped candidate image to DeepSeek with a 3.5-second minimum request interval. DeepSeek output is validated for allowed tab, non-empty title, numeric sanity, and a minimum confidence before rows are merged into a durable local database. The database and progress observations survive STOP, app closure, and later START. Local OCR, automatic profile navigation, automatic scrolling, and a complete combat-power feasibility model are not implemented. The user must navigate to Profile → Achievements and scroll manually; the app observes and analyzes changed visible pages. A basic completion-time estimate is derived from at least two observed progress increases separated by time; it is a rough historical-rate estimate, not a guaranteed prediction.
 
 ### User-driven extra context
 
@@ -244,8 +244,21 @@ If the AI needs a building or troop level to estimate whether an achievement is 
 
 ### Frame-rate and provider-cost policy
 
-The capture pipeline accepts frames at up to 30 FPS and stores only the latest in-memory frame. It does not upload a video stream. A DeepSeek request occurs only after a stable screen change and is rate-limited; the full 30 FPS stream is never uploaded.
+The capture pipeline accepts frames at up to 30 FPS and stores only the latest in-memory frame. It does not upload a video stream. A DeepSeek request occurs only after a stable screen change and is rate-limited to one per 3.5 seconds; the full 30 FPS stream is never uploaded. A separate GET /models diagnostic checks the API key and confirms that deepseek-flash advertises image input without consuming a vision inference.
 
 ### Build status
 
-The GitHub Actions workflow is configured to run `assembleDebug` and upload an APK artifact. A green build and physical-device test are still required before calling the APK stable.
+The GitHub Actions workflow is configured to run `assembleDebug` and upload an APK artifact. Unit tests and the GitHub Actions build must pass; physical-device validation on the Samsung Galaxy A35 5G / Android 16 is still required before calling the APK stable.
+
+
+## Audit findings and mitigations
+
+- Exact full-frame hashes were too sensitive to small animation changes; the scanner now uses a 64-bit average-luminance perceptual hash with a Hamming-distance threshold.
+- Stale in-flight Vision requests are disconnected on STOP and their results are discarded when their capture-session generation is no longer current.
+- The saved active flag is cleared on service process recreation because Android MediaProjection cannot be restored after process death; the Achievement database is not cleared.
+- Usage Events processing now handles both foreground/resume and background/pause events. Capture pauses when Clash is not the verified foreground package, the device is locked, or the display is off.
+- DNS lookup, socket timeout, HTTP authorization, rate-limit, and provider-server errors are surfaced as distinct user-facing diagnostics.
+- Vision output rows with low confidence, negative progress, or invalid titles are not inserted into the durable task database.
+- Database writes use synchronous commit before the result is reported as saved.
+- Ranking now considers progress completion ratio, visible Gem reward, XP reward, confidence, and historical completion rate where enough progress observations exist.
+- A unit-test suite verifies the no-game-input and no-Gem-spending invariants. It does not replace manual Android device tests.
