@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Opens the Clash of Clans player profile and scrolls the visible Achievement list during a user-started session.</string>
+</resources>
