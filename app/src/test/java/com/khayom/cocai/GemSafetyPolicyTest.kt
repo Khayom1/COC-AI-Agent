@@ -5,15 +5,16 @@ import org.junit.Test
 
 class GemSafetyPolicyTest {
     @Test
-    fun gameInputIsPermanentlyDisabled() {
-        assertFalse(GemSafetyPolicy.canSendGameInput())
+    fun gameplayInputIsPermanentlyDisabled() {
+        assertFalse(GemSafetyPolicy.canSendGameplayInput())
     }
 
     @Test
     fun allGameActionsRemainBlocked() {
         val actions = listOf(
-            "open profile",
-            "scroll achievement list",
+            "start multiplayer attack",
+            "deploy troops",
+            "cast spell",
             "buy builder",
             "spend gems",
             "upgrade building",
