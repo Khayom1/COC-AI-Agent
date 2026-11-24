@@ -54,6 +54,17 @@ class CaptureOverlayService : Service() {
     @Volatile private var lastForegroundAllowed = false
     private var stoppingProjection = false
     private val analyzing = AtomicBoolean(false)
+    @Volatile private var candidateFrameSignature = 0L
+    @Volatile private var candidateStableSince = 0L
+    @Volatile private var lastAnalyzedFrameSignature = 0L
+    @Volatile private var lastAutoAnalysisAt = 0L
+
+    private val autoScanRunnable = object : Runnable {
+        override fun run() {
+            autoScanChangedFrame()
+            workerHandler?.postDelayed(this, AUTO_SCAN_POLL_MS)
+        }
+    }
 
     private var windowManager: WindowManager? = null
     private var overlayView: android.view.View? = null
@@ -166,7 +177,20 @@ class CaptureOverlayService : Service() {
                 null,
                 workerHandler
             )
-            updateStatus("Сканер фаъол аст. Ҳадди коркард: 30 кадр/сония.")
+            isCapturing = virtualDisplay != null
+            getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_CAPTURE_ACTIVE, isCapturing)
+                .putLong(KEY_LAST_STARTED_AT, System.currentTimeMillis())
+                .apply()
+            candidateFrameSignature = 0L
+            candidateStableSince = 0L
+            lastAnalyzedFrameSignature = 0L
+            lastAutoAnalysisAt = 0L
+            workerHandler?.removeCallbacks(autoScanRunnable)
+            workerHandler?.postDelayed(autoScanRunnable, AUTO_SCAN_POLL_MS)
+            overlayStatus?.post { overlayStatus?.text = "COC AI • ACTIVE" }
+            updateStatus("Сканер фаъол аст. То 30 FPS; Achievement худкор таҳлил мешавад.")
         } catch (e: Exception) {
             stopProjectionKeepOverlay()
             updateStatus("Сабти экран оғоз нашуд: ${e.message ?: "номаълум"}")
@@ -241,6 +265,53 @@ class CaptureOverlayService : Service() {
         }
     }
 
+    private fun autoScanChangedFrame() {
+        if (!isCapturing || !isAllowedGameForeground()) return
+
+        val frameCopy = synchronized(frameLock) {
+            latestFrame?.takeIf { !it.isRecycled }?.copy(Bitmap.Config.ARGB_8888, false)
+        } ?: return
+
+        val signature = try {
+            frameSignature(frameCopy)
+        } finally {
+            if (!frameCopy.isRecycled) frameCopy.recycle()
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        if (signature != candidateFrameSignature) {
+            candidateFrameSignature = signature
+            candidateStableSince = now
+            return
+        }
+
+        if (signature == lastAnalyzedFrameSignature) return
+        if (now - candidateStableSince < FRAME_STABLE_MS) return
+        if (now - lastAutoAnalysisAt < MIN_AUTO_ANALYSIS_INTERVAL_MS) return
+
+        lastAnalyzedFrameSignature = signature
+        lastAutoAnalysisAt = now
+        analyzeLatestFrame()
+    }
+
+    private fun frameSignature(bitmap: Bitmap): Long {
+        val sample = Bitmap.createScaledBitmap(bitmap, SIGNATURE_SIZE, SIGNATURE_SIZE, true)
+        return try {
+            var hash = FNV_OFFSET_BASIS
+            val pixels = IntArray(SIGNATURE_SIZE * SIGNATURE_SIZE)
+            sample.getPixels(pixels, 0, SIGNATURE_SIZE, 0, 0, SIGNATURE_SIZE, SIGNATURE_SIZE)
+            for (pixel in pixels) {
+                val quantized = ((pixel ushr 20) and 0x0F) shl 8 or
+                    ((pixel ushr 12) and 0x0F) shl 4 or
+                    ((pixel ushr 4) and 0x0F)
+                hash = (hash xor quantized.toLong()) * FNV_PRIME
+            }
+            hash
+        } finally {
+            if (sample !== bitmap && !sample.isRecycled) sample.recycle()
+        }
+    }
+
     private fun analyzeLatestFrame() {
         if (!isCapturing || !isAllowedGameForeground()) {
             updateStatus("Барои SCAN, Clash of Clans бояд кушода ва мониторинг фаъол бошад.")
@@ -272,6 +343,7 @@ class CaptureOverlayService : Service() {
                 updateNotification("Таҳлил анҷом ёфт. Барои дидани натиҷа барномаро кушо.")
                 updateStatus("Таҳлил анҷом ёфт.")
             } catch (e: Exception) {
+                lastAnalyzedFrameSignature = 0L
                 val message = "Хатои таҳлил: ${e.message ?: "номаълум"}"
                 publishResult(message)
                 updateNotification(message)
@@ -294,12 +366,18 @@ class CaptureOverlayService : Service() {
     private fun stopProjectionKeepOverlay() {
         stopProjectionResources()
         isCapturing = false
-        overlayStatus?.post { overlayStatus?.text = "COC • STOPPED" }
+        getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_CAPTURE_ACTIVE, false)
+            .putLong(KEY_LAST_PAUSED_AT, System.currentTimeMillis())
+            .apply()
+        overlayStatus?.post { overlayStatus?.text = "COC AI • PAUSED" }
         startAsForeground(capturing = false)
         updateNotification("Сканер қатъ аст. Барои оғоз START-ро пахш кун.")
     }
 
     private fun stopProjectionResources() {
+        workerHandler?.removeCallbacks(autoScanRunnable)
         try { virtualDisplay?.release() } catch (_: Exception) { }
         virtualDisplay = null
         try { imageReader?.setOnImageAvailableListener(null, null) } catch (_: Exception) { }
@@ -392,16 +470,16 @@ class CaptureOverlayService : Service() {
             setPadding(dp(7), dp(5), dp(7), dp(5))
         }
         val header = TextView(this).apply {
-            text = "COC AI • 30 FPS  ⋮"
-            textSize = 11f
+            text = "COC AI  •  30 FPS   ⋮"
+            textSize = 12f
             setTextColor(Color.WHITE)
-            setPadding(dp(7), dp(4), dp(7), dp(5))
+            setPadding(dp(8), dp(5), dp(8), dp(5))
         }
         overlayStatus = TextView(this).apply {
-            text = if (isCapturing) "ACTIVE" else "STOPPED"
+            text = if (isCapturing) "ИДОМА ДОРАНД" else "ҚАТЪ ШУДА"
             textSize = 10f
             setTextColor(Color.LTGRAY)
-            setPadding(dp(7), dp(2), dp(7), dp(4))
+            setPadding(dp(8), dp(2), dp(8), dp(5))
         }
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         actions.addView(overlayButton("START", Color.rgb(30, 135, 70)) {
@@ -410,9 +488,6 @@ class CaptureOverlayService : Service() {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             startActivity(open)
-        })
-        actions.addView(overlayButton("SCAN", Color.rgb(45, 88, 150)) {
-            startService(Intent(this, CaptureOverlayService::class.java).setAction(ACTION_ANALYZE))
         })
         actions.addView(overlayButton("STOP", Color.rgb(168, 48, 48)) {
             startService(Intent(this, CaptureOverlayService::class.java).setAction(ACTION_STOP_CAPTURE))
@@ -488,6 +563,8 @@ class CaptureOverlayService : Service() {
 
     override fun onDestroy() {
         stoppingProjection = true
+        getSharedPreferences(SESSION_PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_CAPTURE_ACTIVE, false).apply()
         stopProjectionResources()
         removeOverlay()
         try { worker?.quitSafely() } catch (_: Exception) { }
@@ -518,5 +595,15 @@ class CaptureOverlayService : Service() {
         private const val CHANNEL_ID = "coc_ai_monitor"
         private const val NOTIFICATION_ID = 103
         private const val FRAME_INTERVAL_MS = 33L
+        private const val AUTO_SCAN_POLL_MS = 1_000L
+        private const val FRAME_STABLE_MS = 1_500L
+        private const val MIN_AUTO_ANALYSIS_INTERVAL_MS = 10_000L
+        private const val SIGNATURE_SIZE = 12
+        private const val FNV_OFFSET_BASIS = 1_469_598_103_934_665_603L
+        private const val FNV_PRIME = 1_099_511_628_211L
+        const val SESSION_PREFS = "coc_ai_session"
+        const val KEY_CAPTURE_ACTIVE = "capture_active"
+        const val KEY_LAST_STARTED_AT = "last_started_at"
+        const val KEY_LAST_PAUSED_AT = "last_paused_at"
     }
 }
