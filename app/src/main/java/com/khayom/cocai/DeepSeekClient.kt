@@ -18,9 +18,23 @@ object DeepSeekClient {
     fun analyzeAchievements(bitmap: Bitmap, apiKey: String): String {
         require(apiKey.isNotBlank()) { "Дар Settings API Key ворид кун." }
 
-        val bytes = ByteArrayOutputStream().also {
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 78, it)
-        }.toByteArray()
+        // Crop toward the central achievement panel to avoid forwarding most of the
+        // unrelated village HUD/player details to the vision provider.
+        val landscape = bitmap.width >= bitmap.height
+        val left = (bitmap.width * if (landscape) 0.13f else 0.05f).toInt()
+        val top = (bitmap.height * if (landscape) 0.015f else 0.15f).toInt()
+        val cropWidth = (bitmap.width * if (landscape) 0.74f else 0.90f)
+            .toInt().coerceAtMost(bitmap.width - left).coerceAtLeast(1)
+        val cropHeight = (bitmap.height * if (landscape) 0.97f else 0.70f)
+            .toInt().coerceAtMost(bitmap.height - top).coerceAtLeast(1)
+        val cropped = Bitmap.createBitmap(bitmap, left, top, cropWidth, cropHeight)
+        val bytes = try {
+            ByteArrayOutputStream().also {
+                cropped.compress(Bitmap.CompressFormat.JPEG, 78, it)
+            }.toByteArray()
+        } finally {
+            if (cropped !== bitmap && !cropped.isRecycled) cropped.recycle()
+        }
         val dataUrl = "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
 
         val prompt = """
