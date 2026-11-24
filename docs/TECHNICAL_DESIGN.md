@@ -191,23 +191,23 @@ Every user enters their own DeepSeek API key in Settings. The repository and APK
 
 ## Test plan
 
-- Unit tests for number parsing, progress arithmetic, completion detection, stable IDs, and ranking.
-- Screenshot fixtures for the supplied Russian Achievement screen and additional scroll positions.
-- Tests for all three tabs, completed achievements, partially completed achievements, and long lists.
-- Negative tests for Event / Season / Clan Games pages: they must be ignored.
-- API tests for missing / invalid key, offline mode, timeouts, 429, and malformed JSON.
-- Lifecycle tests for permission denial, screen lock, overlay revocation, app switch, rotation, and Stop.
-- Device validation on Samsung Galaxy A35 5G / Android 16 before calling the APK stable.
+- Implemented JVM tests currently verify that game-input automation and Gem spending remain disabled.
+- Planned tests: number parsing, progress arithmetic, completion detection, stable IDs, and ranking.
+- Planned screenshot fixtures: the supplied Russian Achievement screen, all three tabs, completed rows, partially completed rows, and multiple scroll positions.
+- Planned negative tests: Event / Season / Clan Games screens must be rejected.
+- Planned API tests: missing / invalid key, DNS failure, offline mode, timeouts, 429, and malformed JSON. The in-app GET /models diagnostic is implemented separately.
+- Planned lifecycle tests: permission denial, process recreation, screen lock, overlay revocation, app switch, rotation, and STOP.
+- Device validation on Samsung Galaxy A35 5G / Android 16 remains required before calling the APK stable.
 
 ## MVP acceptance criteria
 
 - The only addable game is the allowlisted Clash of Clans package.
 - The scanner processes only the three Profile → Achievements tabs.
 - Event, Season, and Clan Games screens are ignored.
-- All visible rows are parsed with explicit confidence and unknown values where necessary.
-- Scrolling does not create duplicates or skip rows.
-- The ranking explains why an achievement is recommended.
-- Start and Stop always release capture resources and stop API calls.
+- Visible rows accepted by the model are normalized with a confidence value; low-confidence rows are discarded.
+- Repeated sightings of the same tab/title are merged. The user must scroll slowly enough for the stable-frame scanner to inspect each visible section; skipping due to fast scrolling remains possible.
+- The ranking includes a numeric priority based on progress, visible Gem reward, XP reward, confidence, and historical rate where available; this is an estimate, not a guaranteed best-task decision.
+- STOP releases capture resources and cancels the active API request while preserving the task database.
 - No real API key is present in the repository or build artifacts.
 - The app never performs automated game actions.
 
@@ -244,7 +244,7 @@ If the AI needs a building or troop level to estimate whether an achievement is 
 
 ### Frame-rate and provider-cost policy
 
-The capture pipeline accepts frames at up to 30 FPS and stores only the latest in-memory frame. It does not upload a video stream. A DeepSeek request occurs only after a stable screen change and is rate-limited to one per 3.5 seconds; the full 30 FPS stream is never uploaded. A separate GET /models diagnostic checks the API key and confirms that deepseek-flash advertises image input without consuming a vision inference.
+The capture pipeline processes frames at up to 30 FPS and stores only the latest in-memory frame. It does not upload a video stream. A DeepSeek request occurs only after a stable screen change and is rate-limited to one per 3.5 seconds; the full 30 FPS stream is never uploaded. A separate GET /models diagnostic checks the API key and confirms that deepseek-flash advertises image input without consuming a vision inference.
 
 ### Build status
 
