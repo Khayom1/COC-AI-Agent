@@ -347,6 +347,10 @@ class MainActivity : Activity() {
         startService(Intent(this, CaptureOverlayService::class.java)
             .setAction(CaptureOverlayService.ACTION_STOP_CAPTURE))
         toast("Скан таваққуф ёфт. Achievement-ҳо дар хотира монданд.")
+        sessionToggleButton?.apply {
+            text = "▶  START"
+            background = rounded(GREEN, 11)
+        }
         refreshDashboard()
     }
 
