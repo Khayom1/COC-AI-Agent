@@ -65,8 +65,13 @@ object AchievementStore {
             val old = merged[id]
 
             if (old == null) {
+                val observations = JSONArray()
+                fresh.intOrNull("current_progress")?.let { progress ->
+                    observations.put(JSONObject().put("at", now).put("progress", progress))
+                }
                 merged[id] = JSONObject(fresh.toString())
                     .put("tab", tab)
+                    .put("observations", observations)
                     .put("first_seen_at", now)
                     .put("last_seen_at", now)
                 accepted++
@@ -92,6 +97,24 @@ object AchievementStore {
                     .put("completed", completed)
                     .put("confidence", maxOf(oldConfidence, newConfidence))
                     .put("last_seen_at", now)
+
+                val observations = old.optJSONArray("observations") ?: JSONArray()
+                val lastObservation = observations.optJSONObject(observations.length() - 1)
+                val lastObservedAt = lastObservation?.optLong("at", 0L) ?: 0L
+                val lastObservedProgress = lastObservation?.optInt("progress", -1) ?: -1
+                if (current != null && current > lastObservedProgress &&
+                    (lastObservedAt == 0L || now - lastObservedAt >= MIN_OBSERVATION_INTERVAL_MS)) {
+                    observations.put(JSONObject().put("at", now).put("progress", current))
+                    while (observations.length() > MAX_OBSERVATIONS) {
+                        val trimmed = JSONArray()
+                        for (index in 1 until observations.length()) {
+                            trimmed.put(observations.get(index))
+                        }
+                        while (observations.length() > 0) observations.remove(0)
+                        for (index in 0 until trimmed.length()) observations.put(trimmed.get(index))
+                    }
+                }
+                old.put("observations", observations)
 
                 if (newConfidence >= oldConfidence) {
                     val newDescription = fresh.optString("description", "").trim()
@@ -132,7 +155,8 @@ object AchievementStore {
             val item: JSONObject,
             val completed: Boolean,
             val score: Double,
-            val remaining: Int?
+            val remaining: Int?,
+            val etaHours: Double?
         )
 
         val parsed = tasks.map { item ->
@@ -146,11 +170,17 @@ object AchievementStore {
                 (current.toDouble() / target).coerceIn(0.0, 1.0)
             } else 0.0
             val rewardScore = (gems / 300.0).coerceIn(0.0, 1.0)
-            val score = ratio * 0.55 + rewardScore * 0.25 + confidence * 0.20
             val remaining = if (current != null && target != null && target >= current) {
                 target - current
             } else null
-            Ranked(item, completed, score, remaining)
+            val eta = estimateHours(item, remaining)
+            val speedScore = eta?.let { (1.0 / (1.0 + it / 24.0)).coerceIn(0.0, 1.0) }
+            val score = if (speedScore != null) {
+                ratio * 0.35 + rewardScore * 0.25 + confidence * 0.15 + speedScore * 0.25
+            } else {
+                ratio * 0.55 + rewardScore * 0.25 + confidence * 0.20
+            }
+            Ranked(item, completed, score, remaining, eta)
         }
 
         val unfinished = parsed.filterNot { it.completed }.sortedByDescending { it.score }
@@ -181,11 +211,37 @@ object AchievementStore {
                         appendLine("   Пешрафт: хонда нашуд")
                     }
                     item.intOrNull("gems_reward")?.let { appendLine("   Мукофоти кристалл: $it") }
+                    ranked.etaHours?.let { appendLine("   Вақти тахминӣ: ${formatDuration(it)}") }
+                        ?: appendLine("   Вақти анҷом: ҳоло маълум нест")
                     appendLine("   Эътимоди хондан: ${(item.optDouble("confidence", 0.0) * 100).toInt()}%")
                 }
             }
             appendLine()
             append("Рейтинг тахминӣ аст: пешрафт, кристаллҳои мукофотӣ ва эътимоди OCR/Vision-ро ба назар мегирад. Барои пур кардани база, рӯйхатро дастӣ ба поён гардон ва SCAN-ро такрор кун.")
+        }
+    }
+
+    private fun estimateHours(item: JSONObject, remaining: Int?): Double? {
+        if (remaining == null || remaining <= 0) return null
+        val observations = item.optJSONArray("observations") ?: return null
+        if (observations.length() < 2) return null
+        val first = observations.optJSONObject(0) ?: return null
+        val last = observations.optJSONObject(observations.length() - 1) ?: return null
+        val elapsedMs = last.optLong("at") - first.optLong("at")
+        val progressDelta = last.optInt("progress") - first.optInt("progress")
+        if (elapsedMs < MIN_OBSERVATION_INTERVAL_MS || progressDelta <= 0) return null
+        val elapsedHours = elapsedMs / 3_600_000.0
+        val ratePerHour = progressDelta / elapsedHours
+        if (ratePerHour <= 0.0) return null
+        return remaining / ratePerHour
+    }
+
+    private fun formatDuration(hours: Double): String {
+        val minutes = (hours * 60.0).toLong().coerceAtLeast(1)
+        return when {
+            minutes < 60 -> "$minutes дақиқа"
+            minutes < 24 * 60 -> "${minutes / 60} соату ${minutes % 60} дақиқа"
+            else -> "${minutes / (24 * 60)} рӯз"
         }
     }
 
@@ -199,6 +255,9 @@ object AchievementStore {
         "CLAN_CAPITAL" -> "Столица клана"
         else -> "Номаълум"
     }
+
+    private const val MIN_OBSERVATION_INTERVAL_MS = 60_000L
+    private const val MAX_OBSERVATIONS = 8
 
     private fun JSONObject.intOrNull(name: String): Int? {
         if (isNull(name)) return null
