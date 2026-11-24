@@ -222,18 +222,18 @@ The first Android source drop now implements:
 - Native Kotlin Android app with a fixed Clash of Clans package check.
 - MediaProjection consent flow and a screen-capture foreground service.
 - Frame processing throttled to a maximum of 30 frames/second.
-- Floating draggable START / STOP controls; START resumes the saved Achievement database.
+- One floating state-aware START / STOP toggle; STOP preserves the saved Achievement database.
 - Usage Access foreground-package check; analysis is paused unless the latest foreground activity belongs to the allowlisted Clash package.
 - DeepSeek Vision automatically analyzes a stable changed frame, with a minimum interval between requests (not one remote API request per video frame).
 - Central achievement-panel crop before the image is sent to the provider.
 - AES-GCM encryption of the user's key using Android Keystore.
-- A central no-game-input / no-gem-spending policy guard.
+- A navigation-only Accessibility gesture service; strategic gameplay and Gem spending remain disabled.
 
-The current MVP samples frames up to 30 FPS, samples a central 16x16 luminance grid and compares average image differences to ignore small edge animations, waits for a stable materially changed frame, and automatically sends a cropped candidate image to DeepSeek with a 3.5-second minimum request interval. DeepSeek first classifies the screen as the main village, player profile, Achievement page, or other. When the main village is confirmed, the app taps the player-profile badge; when the Achievement page is confirmed, it merges validated rows into a durable local database and schedules an upward swipe. A changed list page is then analyzed and merged. Automatic scrolling is capped at 40 gestures per session. The database and progress observations survive STOP, app closure, and later START. Local OCR and a complete combat-power feasibility model are not implemented. The app does not play battles or deploy troops. A basic completion-time estimate is derived from at least two observed progress increases separated by time; it is a rough historical-rate estimate, not a guaranteed prediction.
+The current MVP samples frames up to 30 FPS, samples a central 56x34 luminance grid and compares average image differences to ignore small edge animations, waits for a stable materially changed frame, and automatically sends a cropped candidate image to DeepSeek with a 3.5-second minimum request interval. DeepSeek first classifies the screen as the main village, player profile, Achievement page, or other. When the main village is confirmed, the app taps the player-profile badge; when the Achievement page is confirmed, it merges validated rows into a durable local database and schedules an upward swipe. A changed list page is then analyzed and merged. Automatic scrolling is capped at 60 gestures per session. After two consecutive swipes with no detected screen movement, the service assumes the current tab has reached its end, selects the next tab, and scans until it returns to the initially selected tab. The database and progress observations survive STOP, app closure, and later START. Local OCR and a complete combat-power feasibility model are not implemented. The app does not play battles or deploy troops. A basic completion-time estimate is derived from at least two observed progress increases separated by time; it is a rough historical-rate estimate, not a guaranteed prediction.
 
 ### User-driven extra context
 
-If the AI needs a building or troop level to estimate whether an achievement is feasible, it may explain exactly what information is missing and ask the user to open that screen manually. This MVP taps only the player-profile badge after DeepSeek classifies the foreground screen as the main village, then uses Accessibility swipe gestures only after DeepSeek confirms the Achievement page. The user must enable the Accessibility service once and grant screen capture consent at each session. The current build does not automate battles, troop deployment, spell use, purchases, upgrades, or Gem spending. The achievement task parser itself rejects building-detail, army, shop, Events, Season Challenges, and Clan Games screens.
+If the AI needs a building or troop level to estimate whether an achievement is feasible, it may explain exactly what information is missing and ask the user to open that screen manually. This MVP taps only the player-profile badge after DeepSeek classifies the foreground screen as the main village, then uses Accessibility swipe gestures only after DeepSeek confirms the Achievement page. The user must enable the Accessibility service once and grant screen capture consent at each session. The initial profile tap and all three tab-selector tap points are calibrated from the supplied 1536x864 landscape screenshot and require physical-device confirmation. The current build does not automate battles, troop deployment, spell use, purchases, upgrades, or Gem spending. The achievement task parser itself rejects building-detail, army, shop, Events, Season Challenges, and Clan Games screens.
 
 ### Non-negotiable Gems lock
 
@@ -253,7 +253,7 @@ The GitHub Actions workflow is configured to run `assembleDebug` and upload an A
 
 ## Audit findings and mitigations
 
-- Exact full-frame hashes were too sensitive to small animation changes; the scanner now uses a 64-bit average-luminance perceptual hash with a Hamming-distance threshold.
+- Exact full-frame hashes were too sensitive to small animation changes; the scanner now compares a central 56x34 luminance grid and verifies whether an automated swipe materially changed the visible Achievement page.
 - Stale in-flight Vision requests are disconnected on STOP and their results are discarded when their capture-session generation is no longer current.
 - The saved active flag is cleared on service process recreation because Android MediaProjection cannot be restored after process death; the Achievement database is not cleared.
 - Usage Events processing now handles both foreground/resume and background/pause events. Capture pauses when Clash is not the verified foreground package, the device is locked, or the display is off.
