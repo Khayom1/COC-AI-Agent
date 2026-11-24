@@ -60,6 +60,8 @@ class CaptureOverlayService : Service() {
     @Volatile private var candidateStableSince = 0L
     @Volatile private var lastAnalyzedFrameSignature = 0L
     @Volatile private var lastAutoAnalysisAt = 0L
+    @Volatile private var nextRetryAt = 0L
+    @Volatile private var retryDelayMs = INITIAL_RETRY_DELAY_MS
 
     private val autoScanRunnable = object : Runnable {
         override fun run() {
@@ -198,6 +200,8 @@ class CaptureOverlayService : Service() {
             candidateStableSince = 0L
             lastAnalyzedFrameSignature = 0L
             lastAutoAnalysisAt = 0L
+            nextRetryAt = 0L
+            retryDelayMs = INITIAL_RETRY_DELAY_MS
             workerHandler?.removeCallbacks(autoScanRunnable)
             workerHandler?.postDelayed(autoScanRunnable, AUTO_SCAN_POLL_MS)
             overlayStatus?.post { overlayStatus?.text = "COC AI • ACTIVE" }
@@ -310,6 +314,7 @@ class CaptureOverlayService : Service() {
         }
         if (now - candidateStableSince < FRAME_STABLE_MS) return
         if (now - lastAutoAnalysisAt < MIN_AUTO_ANALYSIS_INTERVAL_MS) return
+        if (now < nextRetryAt) return
 
         lastAnalyzedFrameSignature = candidateFrameSignature
         lastAutoAnalysisAt = now
@@ -380,12 +385,16 @@ class CaptureOverlayService : Service() {
                 if (isCapturing && sessionGeneration.get() == generation) {
                     val result = AchievementStore.mergeAndFormat(this, scanJson)
                     publishResult(result)
+                    nextRetryAt = 0L
+                    retryDelayMs = INITIAL_RETRY_DELAY_MS
                     updateNotification("Таҳлил анҷом ёфт. Хотираи Achievement нав шуд.")
                     updateStatus("Таҳлил анҷом ёфт.")
                 }
             } catch (e: Exception) {
                 if (isCapturing && sessionGeneration.get() == generation) {
                     lastAnalyzedFrameSignature = 0L
+                    nextRetryAt = SystemClock.elapsedRealtime() + retryDelayMs
+                    retryDelayMs = (retryDelayMs * 2L).coerceAtMost(MAX_RETRY_DELAY_MS)
                     val message = "Хатои таҳлил: ${e.message ?: "номаълум"}"
                     publishResult(message)
                     updateNotification(message)
@@ -665,6 +674,8 @@ class CaptureOverlayService : Service() {
         private const val AUTO_SCAN_POLL_MS = 1_000L
         private const val FRAME_STABLE_MS = 900L
         private const val MIN_AUTO_ANALYSIS_INTERVAL_MS = 3_500L
+        private const val INITIAL_RETRY_DELAY_MS = 5_000L
+        private const val MAX_RETRY_DELAY_MS = 120_000L
         private const val PHASH_SIZE = 8
         private const val MAX_PHASH_DISTANCE = 4
         const val SESSION_PREFS = "coc_ai_session"
