@@ -22,5 +22,5 @@ object GemSafetyPolicy {
         return prohibitedActionWords.none { normalized.contains(it) }
     }
 
-    fun canSendGameInput(): Boolean = false
+    fun canSendGameplayInput(): Boolean = false
 }
