@@ -346,12 +346,13 @@ class MainActivity : Activity() {
         }
         startService(Intent(this, CaptureOverlayService::class.java)
             .setAction(CaptureOverlayService.ACTION_STOP_CAPTURE))
+        prefs.edit().putBoolean(CaptureOverlayService.KEY_CAPTURE_ACTIVE, false).apply()
         toast("Скан таваққуф ёфт. Achievement-ҳо дар хотира монданд.")
         sessionToggleButton?.apply {
             text = "▶  START"
             background = rounded(GREEN, 11)
         }
-        refreshDashboard()
+        statusText.text = statusText.text.toString().replace("●  СКАНИ ФАЪОЛ", "●  СКАНИ ТАВАҚҚУФЁФТА")
     }
 
     private fun openClashOfClans() {
